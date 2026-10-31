@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { getCharacter } from './catalog.js';
 
 const ARM_DOWN_Z = Math.PI / 2;
 
@@ -7,9 +8,11 @@ const ARM_DOWN_Z = Math.PI / 2;
  * Clip order matches a common GLTF export: static TPose first, then an
  * unrelated attack, then the clips locomotion should actually play.
  */
-export function createCharacterModel() {
+export function createCharacterModel(id = 'tommyzilla') {
+  const character = getCharacter(id);
+  const { body, limb, limbShade, eye, mark } = character.palette;
   const scene = new THREE.Group();
-  scene.name = 'Character';
+  scene.name = character.displayName;
 
   const hips = bone('Hips', 0, 1.02, 0);
   const spine = bone('Spine', 0, 0.18, 0);
@@ -43,33 +46,47 @@ export function createCharacterModel() {
   rightShin.add(rightFoot);
   tail.add(tailTip);
 
-  const torso = createBoundTorso(hips);
+  const torso = createBoundTorso(hips, body);
   scene.add(torso);
 
-  addLimbMesh(leftUpper, new THREE.Vector3(-0.18, 0, 0), [0.4, 0.18, 0.18], '#2a9d8f');
-  addLimbMesh(leftLower, new THREE.Vector3(-0.16, 0, 0), [0.36, 0.16, 0.16], '#1f7a70');
-  addLimbMesh(rightUpper, new THREE.Vector3(0.18, 0, 0), [0.4, 0.18, 0.18], '#4c5d73');
-  addLimbMesh(rightLower, new THREE.Vector3(0.16, 0, 0), [0.36, 0.16, 0.16], '#3d4c63');
-  addLimbMesh(leftThigh, new THREE.Vector3(0, -0.24, 0), [0.22, 0.5, 0.22], '#2a9d8f');
-  addLimbMesh(leftShin, new THREE.Vector3(0, -0.22, 0), [0.18, 0.46, 0.18], '#1f7a70');
-  addLimbMesh(rightThigh, new THREE.Vector3(0, -0.24, 0), [0.22, 0.5, 0.22], '#4c5d73');
-  addLimbMesh(rightShin, new THREE.Vector3(0, -0.22, 0), [0.18, 0.46, 0.18], '#3d4c63');
-  addLimbMesh(head, new THREE.Vector3(0, 0.16, 0.04), [0.5, 0.4, 0.46], '#5c6b82');
+  addLimbMesh(leftUpper, new THREE.Vector3(-0.18, 0, 0), [0.4, 0.18, 0.18], limb);
+  addLimbMesh(leftLower, new THREE.Vector3(-0.16, 0, 0), [0.36, 0.16, 0.16], limbShade);
+  addLimbMesh(rightUpper, new THREE.Vector3(0.18, 0, 0), [0.4, 0.18, 0.18], limb);
+  addLimbMesh(rightLower, new THREE.Vector3(0.16, 0, 0), [0.36, 0.16, 0.16], limbShade);
+  addLimbMesh(leftThigh, new THREE.Vector3(0, -0.24, 0), [0.22, 0.5, 0.22], limb);
+  addLimbMesh(leftShin, new THREE.Vector3(0, -0.22, 0), [0.18, 0.46, 0.18], limbShade);
+  addLimbMesh(rightThigh, new THREE.Vector3(0, -0.24, 0), [0.22, 0.5, 0.22], limb);
+  addLimbMesh(rightShin, new THREE.Vector3(0, -0.22, 0), [0.18, 0.46, 0.18], limbShade);
+  addLimbMesh(head, new THREE.Vector3(0, 0.16, 0.04), [0.5, 0.4, 0.46], limb);
+  addSilhouette(character.modelKind, { spine, head, chest, tail, mark, limbShade });
 
-  const eyeMat = new THREE.MeshBasicMaterial({ color: '#3ee0c5' });
+  const eyeMat = new THREE.MeshBasicMaterial({ color: eye });
   const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 8), eyeMat);
   leftEye.position.set(-0.12, 0.16, 0.2);
   const rightEye = leftEye.clone();
   rightEye.position.x = 0.12;
+  leftEye.userData.part = 'eye';
+  rightEye.userData.part = 'eye';
   head.add(leftEye, rightEye);
+
+  const nameplate = new THREE.Object3D();
+  nameplate.name = 'Nameplate';
+  nameplate.userData.label = character.displayName;
+  nameplate.position.set(0, 2.25, 0);
+  scene.add(nameplate);
+
+  scene.userData.characterId = character.id;
+  scene.userData.displayName = character.displayName;
+  scene.userData.modelKind = character.modelKind;
 
   return {
     scene,
+    displayName: character.displayName,
     animations: [createTPoseClip(), createAttackClip(), createWalkClip(), createIdleClip()],
   };
 }
 
-function createBoundTorso(hips) {
+function createBoundTorso(hips, color) {
   const geometry = new THREE.BoxGeometry(0.78, 0.72, 0.42);
   geometry.translate(0, 1.38, 0);
   const count = geometry.attributes.position.count;
@@ -83,9 +100,10 @@ function createBoundTorso(hips) {
 
   const torso = new THREE.SkinnedMesh(
     geometry,
-    new THREE.MeshLambertMaterial({ color: '#4d5d73' }),
+    new THREE.MeshLambertMaterial({ color }),
   );
   torso.name = 'Torso';
+  torso.userData.part = 'body';
   torso.add(hips);
   torso.updateMatrixWorld(true);
   const bones = [];
@@ -202,6 +220,55 @@ function addLimbMesh(parent, offset, size, color) {
   );
   mesh.position.copy(offset);
   mesh.castShadow = true;
+  mesh.userData.part = 'limb';
   parent.add(mesh);
+  return mesh;
+}
+
+function addSilhouette(modelKind, { spine, head, chest, tail, mark, limbShade }) {
+  if (modelKind === 'dinosaur') {
+    [0.28, 0.46, 0.62].forEach((y, index) => {
+      const plate = markMesh('DorsalPlate', [0.16, 0.28 - index * 0.04, 0.1], mark);
+      plate.position.set(0, y, -0.4);
+      spine.add(plate);
+    });
+  }
+
+  if (modelKind === 'yeti') {
+    const brow = markMesh('Brow', [0.52, 0.16, 0.2], mark);
+    brow.position.set(0, 0.34, 0.22);
+    head.add(brow);
+  }
+
+  if (modelKind === 'dragon') {
+    const snout = markMesh('Snout', [0.18, 0.14, 0.42], mark);
+    snout.position.set(0, 0.06, 0.38);
+    head.add(snout);
+    const leftWing = markMesh('Wing', [0.85, 0.1, 0.42], mark);
+    leftWing.position.set(-0.7, 0.28, -0.12);
+    leftWing.rotation.z = 0.7;
+    leftWing.rotation.y = -0.4;
+    const rightWing = markMesh('Wing', [0.85, 0.1, 0.42], mark);
+    rightWing.position.set(0.7, 0.28, -0.12);
+    rightWing.rotation.z = -0.7;
+    rightWing.rotation.y = 0.4;
+    chest.add(leftWing, rightWing);
+  }
+
+  if (modelKind !== 'yeti') {
+    const tailMesh = markMesh('TailMesh', [0.16, 0.16, 0.4], limbShade);
+    tailMesh.position.set(0, 0, -0.16);
+    tail.add(tailMesh);
+  }
+}
+
+function markMesh(name, size, color) {
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(size[0], size[1], size[2]),
+    new THREE.MeshLambertMaterial({ color }),
+  );
+  mesh.name = name;
+  mesh.userData.identityMark = true;
+  mesh.castShadow = true;
   return mesh;
 }
