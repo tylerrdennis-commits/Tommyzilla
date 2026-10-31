@@ -1,6 +1,11 @@
 #include "model_library.h"
+#include <algorithm>
+#include <cmath>
 #include <cctype>
+#include <initializer_list>
+#include <vector>
 #include "../core/json.h"
+#include "animator.h"
 #include "model_loader.h"
 namespace tz {
 namespace mdl {
@@ -17,6 +22,36 @@ static const std::vector<std::string>& candidates(const std::string& logical) {
   auto it = c.find(logical); return it == c.end() ? none : it->second;
 }
 static bool matches(const std::string& pattern, const std::string& name) { return matchPattern(pattern, name); }
+// Quaternius (and similar) rest poses are an A/T stance. An "idle" clip that never rotates the upper arms
+// leaves that bind pose on screen, which reads as a stuck T-pose. Those ids should play their walk cycle instead.
+static bool limbClipLeavesBind(const Model& m, int clip) {
+  if (clip < 0 || clip >= (int)m.clips.size()) return true;
+  auto collect = [&](std::initializer_list<const char*> names) {
+    std::vector<int> out;
+    for (const char* n : names)
+      for (size_t i = 0; i < m.nodes.size(); i++)
+        if (m.nodes[i].name == n) out.push_back((int)i);
+    return out;
+  };
+  // Arms define a T-pose. Mechs have no arms; their stuck pose is the unmoved legs.
+  const std::vector<int> arms = collect({"UpperArm.L", "UpperArm.R", "arm-left", "arm-right"});
+  const std::vector<int> legs = collect({"UpperLeg.L", "UpperLeg.R", "leg-left", "leg-right"});
+  const std::vector<int>& limbs = !arms.empty() ? arms : legs;
+  if (limbs.empty()) return false;
+  const std::vector<Transform> rest = m.restLocals();
+  const float dur = std::max(0.f, m.clips[(size_t)clip].duration);
+  float maxQ = 0;
+  for (float u : {0.f, 0.25f, 0.5f, 0.75f}) {
+    std::vector<Transform> locals = rest;
+    sampleClip(m.clips[(size_t)clip], dur * u, locals);
+    for (int i : limbs) {
+      const Quat& a = rest[(size_t)i].r; const Quat& b = locals[(size_t)i].r;
+      const float dot = a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
+      maxQ = std::max(maxQ, 1.f - std::fabs(dot));
+    }
+  }
+  return maxQ < 0.01f;  // upper arms never leave the bind rotation
+}
 std::vector<uint8_t> nodeVisibility(const Model& m, const Look& l) {
   if (l.hide.empty()) return {};
   std::vector<uint8_t> v(m.nodes.size(), 1);
@@ -118,6 +153,20 @@ const ModelAsset* ModelLibrary::get(const std::string& id) {
     mapping += std::string(mapping.empty() ? "" : ", ") + lc + "=" + (ci >= 0 ? m.clips[(size_t)ci].name : "-");
   }
   for (auto& e : d->clips) if (!a->clipMap.count(e.first)) a->clipMap[e.first] = m.findClip(e.second);  // extra game-specific names
+  {
+    auto idleIt = a->clipMap.find("idle"), walkIt = a->clipMap.find("walk");
+    if (idleIt != a->clipMap.end() && walkIt != a->clipMap.end() && idleIt->second >= 0 && walkIt->second >= 0 && idleIt->second != walkIt->second &&
+        limbClipLeavesBind(m, idleIt->second) && !limbClipLeavesBind(m, walkIt->second)) {
+      log_.push_back("[model] " + id + ": idle leaves the limbs in the bind pose; playing the walk cycle instead");
+      idleIt->second = walkIt->second;
+      std::string rebuilt;
+      for (const char* lc : kLogicalClips) {
+        int ci = a->clipMap.count(lc) ? a->clipMap[lc] : -1;
+        rebuilt += std::string(rebuilt.empty() ? "" : ", ") + lc + "=" + (ci >= 0 ? m.clips[(size_t)ci].name : "-");
+      }
+      mapping = rebuilt;
+    }
+  }
   if (!m.clips.empty()) log_.push_back("[model] " + id + " clip map: " + mapping);
   for (auto& w : m.warnings) log_.push_back("[model] " + id + " warning: " + w);
   a->looks[""] = applyLook(m, d->look); a->visibility[""] = nodeVisibility(m, d->look);

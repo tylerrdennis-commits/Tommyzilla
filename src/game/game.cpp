@@ -851,7 +851,8 @@ static void drawEgg(RenderList& rl, const Egg& e, float time) {
   } else {
     float k = clampf((e.t - 0.8f) / 3.0f, 0, 1), s = m.scale * (0.12f + 0.88f * (1 - (1 - k) * (1 - k))) * (G->hasLook(m.id) || e.hasLook ? std::max(0.6f, E.growthStart * 1.4f) : 1.f);
     RigPose p; p.time = time; p.glow = 1.2f + 0.4f * std::sin(time * 8); p.jaw = e.state == 3 ? 0.7f : 0.2f; p.headX = e.state == 3 ? -0.3f : 0;
-    ModelReq mr; mr.key = modelKey(MK_PREVIEW, 2); mr.clip = e.state == 3 ? MC_CHEER : MC_IDLE; mr.glow = 0.2f + 0.2f * std::sin(time * 8);
+    p.walk = 1; p.walkPhase = time * 4; { float sw = std::sin(p.walkPhase) * 0.55f; p.armL = sw * 0.6f; p.armR = -sw * 0.6f; }
+    ModelReq mr; mr.key = modelKey(MK_PREVIEW, 2); mr.clip = e.state == 3 ? MC_CHEER : MC_WALK; mr.glow = 0.2f + 0.2f * std::sin(time * 8);
     if (!G->monsterModel(rl, m, e.pos, time * 0.6f, s, mr)) { FinishMarks fm = finishMarks(rl); drawMonster(rl, m, e.pos, time * 0.6f, s, p); applyFinish(rl, fm, G->lookOf(m.id).finish, time); }
   }
 }
@@ -911,12 +912,12 @@ void Game::render3D(RenderList& rl, int w, int h) {
   lastEye = eye; world.render(rl, fr, eye);
   bodies.render(rl); debris->render(rl, eye); splats.render(rl); people.render(rl, eye); enemies.render(rl); fx->render(rl);
   if (charSel) {
-    RigPose p; p.time = titleOrbit * 12; p.glow = 0.9f;
+    RigPose p; p.time = titleOrbit * 12; p.glow = 0.9f; p.walk = 1; p.walkPhase = p.time;
+    { float sw = std::sin(p.walkPhase) * 0.55f; p.armL = sw * 0.6f; p.armR = -sw * 0.6f; }
     MonsterDef md = lookedDef(previewMonster);
     if (!save.monsters.count(md.id)) { md.body = md.belly = hexColor(0x15121c); md.accent = hexColor(0x3a3450); p.glow = 0.5f; }  // locked: silhouette
-    ModelReq mr; mr.key = modelKey(MK_PREVIEW, 0); mr.clip = MC_IDLE;
-    if (!save.monsters.count(md.id)) { mr.tint = Color{0.07f, 0.06f, 0.11f, 1}; mr.speed = 0.3f; }  // locked: silhouette
-    else mr.clip = MC_CHEER;
+    ModelReq mr; mr.key = modelKey(MK_PREVIEW, 0); mr.clip = MC_WALK;  // walk cycle, not the bind T-pose
+    if (!save.monsters.count(md.id)) { mr.tint = Color{0.07f, 0.06f, 0.11f, 1}; mr.speed = 0.45f; }  // locked: silhouette, still stepping
     if (!monsterModel(rl, md, kaiju.pos, kaiju.facing + std::sin(titleOrbit * 6) * 0.6f, T.monsters[previewMonster].scale, mr)) {
       FinishMarks fm = finishMarks(rl);
       drawMonster(rl, md, kaiju.pos, kaiju.facing + std::sin(titleOrbit * 6) * 0.6f, T.monsters[previewMonster].scale, p);
@@ -924,7 +925,8 @@ void Game::render3D(RenderList& rl, int w, int h) {
     }
   } else if (mode == Mode::Intro) {
     RigPose p; p.time = introT * 2; p.glow = 1.0f + 0.5f * clampf((introT - 8) / 2, 0, 1); p.jaw = introT > 9 && introT < 11 ? 0.7f : 0.1f; p.headX = introT > 9 && introT < 11 ? -0.3f : 0;
-    ModelReq mr; mr.key = modelKey(MK_PREVIEW, 1); mr.clip = introT > 9 && introT < 11 ? MC_CHEER : MC_IDLE; mr.glow = std::max(0.f, p.glow - 1) * 0.4f;
+    p.walk = 1; p.walkPhase = p.time; { float sw = std::sin(p.walkPhase) * 0.55f; p.armL = sw * 0.6f; p.armR = -sw * 0.6f; }
+    ModelReq mr; mr.key = modelKey(MK_PREVIEW, 1); mr.clip = introT > 9 && introT < 11 ? MC_CHEER : MC_WALK; mr.glow = std::max(0.f, p.glow - 1) * 0.4f;
     if (!monsterModel(rl, T.monsters[0], introPos + Vec3(0, introRise, 0), introYaw, T.monsters[0].scale * 1.3f, mr))
       drawMonster(rl, T.monsters[0], introPos + Vec3(0, introRise, 0), introYaw, T.monsters[0].scale * 1.3f, p);
   } else { kaiju.render(rl, mode == Mode::Title ? titleOrbit * 12 : time); renderCoop(rl); }  // Titan co-op
