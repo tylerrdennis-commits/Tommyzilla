@@ -47,6 +47,7 @@ bool Game::monsterModel(RenderList& rl, const MonsterDef& m, const Vec3& pos, fl
     KaijuLook l = lookOf(m.id);
     r.palette = true; r.primary = m.body; r.secondary = m.belly; r.accent = m.accent; r.eyes = l.eyes;
     r.finish = (uint8_t)l.finish; r.finishT = realTime;
+    if (l.shiny) { r.finish = std::max<uint8_t>(r.finish, (uint8_t)FIN_GOLD); r.glow = std::max(r.glow, 0.35f); }
   }
   rl.models.push_back(r);
   return true;
@@ -76,6 +77,7 @@ bool Game::kaijuModel(RenderList& rl, float time) {
   else if (m && (m->kind == MoveKind::Super || m->shape == MoveShape::Beam)) r.glow = 0.3f;
   if (k.hurtT > 0) { r.mix = hexColor(0xff4040); r.mixK = 0.3f * clampf((k.hurtT - 0.15f) / 0.15f, 0, 1); }  // brief hit flash
   if (k.spawnGlow > 0) r.glow = std::max(r.glow, k.spawnGlow);
+  if (hasInfinity("soul")) r.glow = std::max(r.glow, 0.45f);
   float pop = 1 + 0.25f * std::sin(std::min(1.f, k.popT / 0.6f) * PI);
   return monsterModel(rl, lookedDef(k.monster), Vec3(k.pos.x, (k.inWater ? -2.f : 0.f) + k.lift, k.pos.z), k.facing + k.twist, k.scale() * k.shrinkK * pop, r);
 }

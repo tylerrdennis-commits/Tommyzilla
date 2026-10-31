@@ -394,7 +394,7 @@ static void testAdventure() {
   { Json j; CHECK(Json::parse(saved, j) && (int)j["monsters"].size() == NM); }
   // all unlocked monsters are selectable in sandbox
   g->menus.clear(); g->startMode(false); g->openCharacterSelect(true);
-  int enabled = 0; g->updateMenus(InputState(), 0.016f); for (auto& it : g->menus.back().items) enabled += it.enabled && it.label != "Back";
+  int enabled = 0; g->updateMenus(InputState(), 0.016f); for (auto& it : g->menus.back().items) enabled += it.enabled && it.label != "Back" && it.label.find("shiny") == std::string::npos;
   CHECK(enabled == NM);
   // a reloaded save keeps everything
   auto g2 = std::make_unique<Game>(); g2->init(&saved);
@@ -2220,13 +2220,66 @@ static void testZooGateQuest() {
   if (Unit* mb = s->enemies.miniBoss()) s->enemies.wreckUnit(*mb); run(*s, 0.5f);
   CHECK(s->level.won && !s->level.active && s->AP().levelsWon >= 14);
 }
+static void testVersionNotes() {
+  SECTION("names match meshes, 16 models, shiny eggs, infinity stones, boss variety");
+  auto nm = [](const char* id) { return T.monsters[(size_t)T.monsterIndex(id)].name; };
+  CHECK(nm("tommyzilla") == "Tommyzilla" && T.monsters[0].desc.find("dinosaur") != std::string::npos);
+  CHECK(nm("mossback") == "Yeti");
+  CHECK(nm("sparkleraptor") == "Sparkle Dragon");
+  CHECK(nm("hootzooka") == "Birb");
+  CHECK(nm("bonkbeak") == "Pigeon");
+  CHECK(nm("noodlewyrm") == "Dragon");
+  CHECK(nm("wobblewump") == "Mushroom King");
+  CHECK(nm("thunderhorn") == "Thunder Demon");
+  CHECK(nm("roborumble") == "Fox Mech");
+  CHECK(nm("clanksworth") == "Bee Mech");
+  CHECK(nm("stompasaurus") == "Blue Demon");
+  CHECK(nm("pinchington") == "Block Kid");
+  CHECK(nm("gloopzilla") == "Gloopzilla");
+  CHECK(std::string(kShinyOddsLine).find("1 in 10") != std::string::npos && std::string(kShinyOddsLine).find("10 eggs") != std::string::npos);
+  CHECK(kInfinityCount == 6);
+  for (const InfinityStoneDef& s : kInfinityStones) CHECK(s.what && std::string(s.what).size() > 8);
+  int eggs = 9; ShinyRoll low = eggs::rollShiny(eggs, tmpRng(1)); CHECK(!low.spent && !low.hit && eggs == 9);
+  int hits = 0, misses = 0;
+  for (int seed = 1; seed < 400 && (hits == 0 || misses == 0); seed++) {
+    int e = 25; bool before = e >= 10; ShinyRoll r = eggs::rollShiny(e, tmpRng((uint64_t)seed));
+    CHECK(r.spent && e == 15 && before);
+    hits += r.hit; misses += !r.hit;
+  }
+  CHECK(hits > 0 && misses > 0);
+  SaveData fresh; CHECK(fresh.eggs == 30);
+  Json saved = fresh.toJson(); saved.obj.erase("eggs"); SaveData old; CHECK(old.fromJson(saved) && old.eggs == 30);
+  fresh.eggs = 4; Json kept = fresh.toJson(); SaveData back; CHECK(back.fromJson(kept) && back.eggs == 4);
+  auto g = newGame();
+  g->save.eggs = 4; g->openCharacterSelect(false); g->updateMenus(InputState(), 0.016f);
+  bool odds = g->menus.back().body.find("1 in 10") != std::string::npos && g->menus.back().body.find("not a guarantee") != std::string::npos;
+  bool disabled = false; for (auto& it : g->menus.back().items) if (it.label.find("shiny") != std::string::npos) disabled = !it.enabled && it.desc.find("have 4") != std::string::npos;
+  CHECK(odds && disabled);
+  g->save.eggs = 30; CHECK(g->tryShiny("tommyzilla") && g->save.eggs == 20);
+  g->save.looks["tommyzilla"].shiny = true; int left = g->save.eggs;
+  // a miss must not clear a shiny already earned
+  for (int i = 0; i < 30 && g->save.eggs >= 10; i++) g->tryShiny("tommyzilla");
+  CHECK(g->save.looks["tommyzilla"].shiny && g->save.eggs < left);
+  g->menus.clear(); g->openInfinityStones(); g->updateMenus(InputState(), 0.016f);
+  CHECK((int)g->menus.back().items.size() == kInfinityCount + 1);
+  bool explained = true; for (int i = 0; i < kInfinityCount; i++) explained &= g->menus.back().items[(size_t)i].desc == kInfinityStones[i].what;
+  CHECK(explained);
+  g->menus.back().index = 0; tap(*g, A_CONFIRM); CHECK(g->save.infinity.count("space") == 1);
+  tap(*g, A_CONFIRM); CHECK(g->save.infinity.count("space") == 0);
+  std::string prev;
+  int bosses = 0; std::set<std::string> kinds;
+  for (auto& L : T.levels) if (!L.miniBoss.empty()) { CHECK(L.miniBoss != prev); prev = L.miniBoss; kinds.insert(L.miniBoss); bosses++; }
+  CHECK(bosses >= 8 && kinds.size() == 5);
+  CHECK(prog::bossAfter("mech", "mech") != "mech" && prog::bossAfter("crab", "mech") == "crab");
+  CHECK(T.levels[10].miniBoss == "supertank" && T.levels[11].miniBoss == "mech");
+}
 int main() {
   loadData();
   if (const char* only = std::getenv("TZ_ONLY")) {  // quick subset runs while developing: TZ_ONLY=bulk|arc|zoo|ending|...
     std::string o = only;
     if (o == "eggs") testEggTables(); if (o == "spin") testSpinner(); if (o == "growth") testGrowthAndXp(); if (o == "finish") testFinishRender();
     if (o == "ladder") testEnemyLadder(); if (o == "deevo") testDeevo(); if (o == "zoo") testZooAndKey(); if (o == "eat1") testOneButtonEat(); if (o == "siren") testSirenStops(); if (o == "split") testSplitScreen(); if (o == "cam") { testAdventureCamera(); testZooCageBlocks(); } if (o == "arc") testGauntletArc(); if (o == "oldtown") testOldTownQuest(); if (o == "zoogate") testZooGateQuest();
-    if (o == "bulk") testBulkStages(); if (o == "ending") testCreditsAndEnding(); if (o == "wren") testWrenWiring(); if (o == "adventure") testAdventure(); if (o == "police") testSandboxPoliceToggle(); if (o == "controls") testControlsMapping(); if (o == "store") testStoreGrid(); if (o == "ground") testGroundTextures(); if (o == "shader") testShaderKeywords();
+    if (o == "bulk") testBulkStages(); if (o == "ending") testCreditsAndEnding(); if (o == "wren") testWrenWiring(); if (o == "adventure") testAdventure(); if (o == "police") testSandboxPoliceToggle(); if (o == "controls") testControlsMapping(); if (o == "store") testStoreGrid(); if (o == "ground") testGroundTextures(); if (o == "shader") testShaderKeywords(); if (o == "notes") testVersionNotes();
     std::printf("\n%d passed, %d failed\n", gPass, gFail); return gFail ? 1 : 0;
   }
   testData(); testKaijuGen(); testRexPlay(); testUnlocks(); testEconomy(); testPolice(); testTitan(); testTitanGame(); testCampaign(); testSave(); testSynthAndMeshes();
@@ -2235,7 +2288,7 @@ int main() {
   testSkillSlots(); testSaveSlots(); testAdventureChoice(); testCrazy(); testPoliceAudioAndMovement(); testIntro();
   testEatFuel(); testRoster(); testLevel5Chests(); testProceduralCity(); testHiddenStones(); testChampionPick(); testDifficultyCurve();
   testModelHooks(); testSandboxPoliceToggle(); testControlsMapping(); testStoreGrid(); testGroundTextures(); testShaderKeywords();
-  testEggTables(); testSpinner(); testGrowthAndXp(); testFinishRender(); testEnemyLadder(); testDeevo(); testZooAndKey(); testOneButtonEat(); testAdventureCamera(); testZooCageBlocks(); testSirenStops(); testSplitScreen(); testGauntletArc(); testOldTownQuest(); testZooGateQuest(); testBulkStages(); testCreditsAndEnding(); testWrenWiring();
+  testEggTables(); testSpinner(); testGrowthAndXp(); testFinishRender(); testEnemyLadder(); testDeevo(); testZooAndKey(); testOneButtonEat(); testAdventureCamera(); testZooCageBlocks(); testSirenStops(); testSplitScreen(); testGauntletArc(); testOldTownQuest(); testZooGateQuest(); testBulkStages(); testCreditsAndEnding(); testWrenWiring(); testVersionNotes();
   std::printf("\n%d passed, %d failed\n", gPass, gFail);
   return gFail ? 1 : 0;
 }

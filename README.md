@@ -82,10 +82,7 @@ the exe are used.
 ## 3D models
 `data/models.json` maps game ids to model files under `assets/` (height, rotation, clip names, recolours and named
 looks such as enemy tiers). `models_log.txt` beside the exe lists what loaded, the clips found and any fallbacks.
-* **Monsters:** Tommyzilla = Dino, Mossback = Yeti, Sparkleraptor = Dragon Evolved; Gloopzilla, Hootzooka, Bonkbeak,
-  Fizzlefin, Noodlewyrm, Jellybellie, Puffernaut, Wobblewump, Thunderhorn and Roborumble use the nearest Ultimate
-  Monsters / mech model recoloured to their colours. Pinchington, Clamshell, Clanksworth, Stompasaurus and Slinkysnoot
-  have no fitting model and keep their primitive rigs. The character select, intro and egg hatch use the models too.
+* **Monsters:** the name on screen is the mesh. Tommyzilla is the dinosaur, Yeti is the yeti, Sparkle Dragon is the evolved dragon, Birb is the birb, Pigeon is the pigeon, Dragon is the dragon, Mushroom King is the mushroom, Thunder Demon is the demon, Fox Mech is the fox robot, Bee Mech is the bee robot, Blue Demon is the blue demon, and Block Kid is the blocky mini hero. Clamshell and Slinkysnoot keep their crab and serpent rigs. The character select, intro and egg hatch use the models too.
 * **The Bulk:** Blue Demon recoloured purple with gold horns; the model scale follows his growth (up to 4x).
 * **Police / army:** cops = SWAT, soldiers = Soldier (AK; red tier = shotgun + crimson, gold tier = rocket launcher +
   gold), police car, army jeep (SUV, olive), helicopters (police / army looks, searchlight cone kept), tanks
@@ -279,8 +276,8 @@ opens the **Skills** list (pause is Esc / P / Start). On the pad, Y alone is gra
   purchases are unchanged.
 
 ### Monsters (18)
-Tommyzilla (starter), Gloopzilla, Sir Pinchington, Hootzooka, Robo-Rumble, Noodlewyrm, Stompasaurus, Mega Mossback,
-Fizzlefin, Bonkbeak, Jellybellie, Clanksworth, Captain Clamshell, Sparkleraptor, Wobblewump, Thunderhorn,
+Tommyzilla (starter), Gloopzilla, Block Kid, Birb, Fox Mech, Dragon, Blue Demon, Yeti,
+Fizzlefin, Pigeon, Jellybellie, Bee Mech, Captain Clamshell, Sparkle Dragon, Mushroom King, Thunder Demon,
 Slinkysnoot, Puffernaut.
 
 They use 7 procedural body plans (biped, quad, blob, crab, bird, robot and serpent) plus variants such as shells,

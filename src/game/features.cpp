@@ -16,10 +16,13 @@ KaijuLook Game::lookOf(const std::string& id) const {
 }
 MonsterDef Game::lookedDef(int idx) const {
   MonsterDef d = T.monsters[(size_t)std::max(0, std::min(idx, (int)T.monsters.size() - 1))];
-  if (!hasLook(d.id)) return d;
-  KaijuLook l = lookOf(d.id);
-  d.body = l.primary; d.belly = l.secondary; d.accent = l.accent;
-  if (l.genSeed && kgen::usesProcedural(d.id)) { d.genSeed = l.genSeed; d.plan = kgen::planOf(kgen::generate(l.genSeed, l).body); }  // Rex
+  if (hasLook(d.id)) {
+    KaijuLook l = lookOf(d.id);
+    d.body = l.primary; d.belly = l.secondary; d.accent = l.accent;
+    if (l.shiny) { d.body = eggs::hueShift(d.body, 180); d.belly = eggs::hueShift(d.belly, 180); d.accent = eggs::hueShift(d.accent, 180); }
+    if (l.genSeed && kgen::usesProcedural(d.id)) { d.genSeed = l.genSeed; d.plan = kgen::planOf(kgen::generate(l.genSeed, l).body); }  // Rex
+  }
+  if (hasInfinity("reality") && d.id == kaiju.def().id) { d.body = eggs::hueShift(d.body, 140); d.belly = eggs::hueShift(d.belly, 140); d.accent = eggs::hueShift(d.accent, 140); }
   return d;
 }
 Color Game::uiAccent() const { return lookOf(kaiju.def().id).accent; }
@@ -67,6 +70,42 @@ float Game::healKaiju(float amount) {
   return xp;
 }
 void Game::tickPops(float dt) { xpPopT = std::max(0.f, xpPopT - dt); heartPopT = std::max(0.f, heartPopT - dt); }
+
+bool Game::tryShiny(const std::string& id) {
+  if (id.empty() || (!crazy && !save.monsters.count(id))) { toast("Pick a hero you own first"); play(SND_error); return false; }
+  if (save.eggs < kShinyEggCost) { toast("Need 10 eggs (have " + std::to_string(save.eggs) + ")"); play(SND_error); return false; }
+  bool had = lookOf(id).shiny;
+  Rng r((uint64_t)std::chrono::steady_clock::now().time_since_epoch().count() ^ (uint64_t)T.monsterIndex(id) * 0x9E3779B97F4A7C15ull);
+  ShinyRoll roll = eggs::rollShiny(save.eggs, r);
+  if (roll.hit) {
+    int mi = std::max(0, T.monsterIndex(id));
+    KaijuLook l = hasLook(id) ? lookOf(id) : eggs::defaultLook(T.monsters[(size_t)mi]);
+    l.shiny = true; save.looks[id] = l;
+    toast("SHINY " + T.monsters[(size_t)mi].name + "! " + std::string(kShinyOddsLine));
+    play(SND_fanfare, 0.8f);
+  } else {
+    toast(had ? "No new shiny this time - the one you have stays. " + std::string(kShinyOddsLine) : std::string("No shiny this time. ") + kShinyOddsLine);
+    play(SND_ui, 0.5f);
+  }
+  persist();
+  return true;
+}
+
+void Game::openInfinityStones() {
+  Menu m; m.title = "INFINITY STONES";
+  m.build = [this](Menu& mm) {
+    mm.body = "Choose which stones to bring into the run. Each line says what that stone does. Pick one again to leave it behind.";
+    for (const InfinityStoneDef& s : kInfinityStones) {
+      bool on = save.infinity.count(s.id) != 0;
+      MenuItem it; it.label = std::string(s.name); it.desc = s.what; it.right = on ? "ON" : "off";
+      std::string id = s.id;
+      it.act = [this, id]() { if (!save.infinity.insert(id).second) save.infinity.erase(id); persist(); };
+      mm.items.push_back(it);
+    }
+    MenuItem b; b.label = "Back"; b.desc = "Keep this set"; b.act = [this]() { popMenu(); }; mm.items.push_back(b);
+  };
+  pushMenu(m);
+}
 
 // ---------------------------------------------------------------- spinner
 KaijuLook Game::decideSpin(int reason) {

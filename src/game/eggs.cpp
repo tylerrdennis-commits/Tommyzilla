@@ -84,7 +84,7 @@ Json KaijuLook::toJson() const {
   Json j = Json::makeObj();
   j.set("monster", Json::makeStr(monster)); j.set("rarity", Json::makeNum(rarity)); j.set("palette", Json::makeNum(palette));
   j.set("primary", Json::makeStr(eggs::hex(primary))); j.set("secondary", Json::makeStr(eggs::hex(secondary))); j.set("accent", Json::makeStr(eggs::hex(accent))); j.set("eyes", Json::makeStr(eggs::hex(eyes)));
-  j.set("finish", Json::makeNum(finish));
+  j.set("finish", Json::makeNum(finish)); j.set("shiny", Json::makeBool(shiny));
   Json p = Json::makeArr(); for (auto& s : passives) p.arr.push_back(Json::makeStr(s)); j.set("passives", p);
   j.set("bonusSuper", Json::makeStr(bonusSuper));
   j.set("genSeed", Json::makeNum((double)genSeed)); j.set("element", Json::makeNum(element));
@@ -94,7 +94,7 @@ bool KaijuLook::fromJson(const Json& j) {
   if (j.type != Json::Object) return false;
   monster = j["monster"].strOr(""); rarity = (int)j["rarity"].numOr(0); palette = (int)j["palette"].numOr(0);
   primary = hexOr(j["primary"], hexColor(0x888888)); secondary = hexOr(j["secondary"], primary); accent = hexOr(j["accent"], primary); eyes = hexOr(j["eyes"], hexColor(0xffe03a));
-  finish = std::max(0, std::min(3, (int)j["finish"].numOr(0)));
+  finish = std::max(0, std::min(3, (int)j["finish"].numOr(0))); shiny = j["shiny"].boolOr(false);
   passives.clear(); for (auto& s : j["passives"].arr) passives.push_back(s.strOr(""));
   bonusSuper = j["bonusSuper"].strOr("");
   genSeed = (uint32_t)j["genSeed"].numOr(0); element = std::max(-1, std::min(3, (int)j["element"].numOr(-1)));
@@ -136,6 +136,13 @@ KaijuLook defaultLook(const MonsterDef& m) {
   k.primary = m.body; k.secondary = m.belly; k.accent = m.accent; k.eyes = hexColor(0xffe03a);
   auto it = E.palettes.find(m.id); if (it != E.palettes.end() && !it->second.empty()) k.eyes = it->second[0].eyes;
   return k;
+}
+ShinyRoll rollShiny(int& eggs, Rng& r) {
+  ShinyRoll o;
+  if (eggs < kShinyEggCost) return o;
+  eggs -= kShinyEggCost; o.spent = true;
+  o.hit = r.next() < 1.f / (float)kShinyOdds;
+  return o;
 }
 KaijuLook rollLook(Rng& r, const std::string& monster, const Tables& t) {
   int mi = std::max(0, t.monsterIndex(monster));

@@ -24,8 +24,9 @@ enum { PROPS_NONE, PROPS_SHATTER, PROPS_FLING };
 const MonsterDef& Kaiju::def() const { return T.monsters[(size_t)std::max(0, std::min(monster, (int)T.monsters.size() - 1))]; }
 // size: species scale x rarity size bonus x growth (hatchling ~0.42 -> 1, capped); legacy / un-rolled monsters are full size
 float Kaiju::scale() const {
-  if (!G || !G->hasLook(def().id)) return def().scale;
-  return def().scale * G->rarityOf(def().id).size * eggs::growthScale(G->kaijuXp());
+  float s = (!G || !G->hasLook(def().id)) ? def().scale : def().scale * G->rarityOf(def().id).size * eggs::growthScale(G->kaijuXp());
+  if (G && G->hasInfinity("power")) s *= 1.2f;
+  return s;
 }
 float Kaiju::radius() const { return C.kaijuRadius * scale(); }
 static float vmult(const Kaiju& k, vpow::Stat st) { return G ? G->vault.mult(k.def().id, st) : 1.f; }  // Wren: Vault kaiju powers
@@ -243,6 +244,7 @@ void Kaiju::update(float dt, const InputState& in) {
   float mag = std::min(1.f, std::hypot(mx, mz));
   const MoveDef* am = at.move >= 0 ? &T.moves[at.move] : nullptr;
   float speed = C.kaijuSpeed * prog::speedMult(P.speedLvl) * def().speed * vmult(*this, vpow::ST_SPEED) * (in.held[A_SPRINT] ? C.kaijuSprint : 1.f);
+  if (G->hasInfinity("space")) speed *= 1.35f;
   inWater = G->world.isWater(pos.x, pos.z);
   if (inWater) speed *= C.waterSlow;
   if (am) speed *= am->shape == MoveShape::Tornado ? 1.2f : am->shape == MoveShape::Spin ? 0.7f : am->shape == MoveShape::Dash ? 0.f : 0.3f;

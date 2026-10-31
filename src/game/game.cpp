@@ -390,8 +390,9 @@ void Game::updateLevel(float dt) {
     if (level.bossPhase) win = level.bossDown;
     else if (win) {
       win = false; level.bossPhase = true;
-      enemies.addUnit(U_MBOSS); Unit& u = enemies.units.back(); u.boss = bossIdFromName(L.miniBoss); u.pos.y = bossSpawnHeight(u.boss); enemies.applyTier(u, L.tier);
-      std::string nm = u.boss == 2 ? "MEGA MECH" : "GIANT SUPER-TANK";
+      std::string bossId = prog::bossAfter(L.miniBoss, AP().lastBoss); AP().lastBoss = bossId;
+      enemies.addUnit(U_MBOSS); Unit& u = enemies.units.back(); u.boss = bossIdFromName(bossId); u.pos.y = bossSpawnHeight(u.boss); enemies.applyTier(u, L.tier);
+      std::string nm = bossDisplayName(u.boss);
       bigMessage("BOSS INCOMING!", nm); play(SND_roarCharge, 0.8f, 0.6f); play(SND_cannon, 1.f, 0.5f);
       toast("Goal done! Now knock out the " + nm + " (watch its health bar)");
     }

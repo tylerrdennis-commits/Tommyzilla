@@ -297,7 +297,7 @@ static void testGameModels(ModelLibrary& lib) {
   int mapped = 0; std::string none;
   for (auto& m : T.monsters) { if (gm.find(m.id) >= 0) mapped++; else none += " " + m.id; }
   std::printf("  monsters with models: %d/%zu (primitive:%s)\n", mapped, T.monsters.size(), none.c_str());
-  CHECK(gm.find("tommyzilla") >= 0 && gm.find("mossback") >= 0 && gm.find("sparkleraptor") >= 0 && mapped >= 10);
+  CHECK(gm.find("tommyzilla") >= 0 && gm.find("mossback") >= 0 && gm.find("sparkleraptor") >= 0 && gm.find("clanksworth") >= 0 && gm.find("pinchington") >= 0 && gm.find("stompasaurus") >= 0 && mapped >= 16);
   { int bad = 0; for (auto& d : lib.manifest().models) { const ModelAsset* a = lib.get(d.id); if (!a) continue;
       for (auto& c : d.clips) if (a->clip(c.first) < 0) { bad++; std::printf("  %s: clip %s -> '%s' missing\n", d.id.c_str(), c.first.c_str(), c.second.c_str()); } }
     CHECK(bad == 0); }

@@ -30,6 +30,7 @@ Json Profile::toJson() const {
   j.set("gauntletSlot", Json::makeBool(gauntletSlot)); j.set("gauntlet", Json::makeBool(gauntlet)); j.set("gauntletOn", Json::makeBool(gauntletOn));
   j.set("gauntletCracked", Json::makeBool(gauntletCracked)); j.set("endingDone", Json::makeBool(endingDone));
   Json st = Json::makeArr(); for (auto& g : stones) st.arr.push_back(Json::makeStr(g)); j.set("stones", st);
+  j.set("lastBoss", Json::makeStr(lastBoss));
   return j;
 }
 void Profile::fromJson(const Json& j) {
@@ -56,6 +57,7 @@ void Profile::fromJson(const Json& j) {
   gauntletSlot = j["gauntletSlot"].boolOr(false); gauntlet = j["gauntlet"].boolOr(false); gauntletOn = j["gauntletOn"].boolOr(false);
   gauntletCracked = j["gauntletCracked"].boolOr(false); endingDone = j["endingDone"].boolOr(false);
   for (auto& g : j["stones"].arr) stones.push_back(g.strOr(""));
+  lastBoss = j["lastBoss"].strOr("");
 }
 void SaveData::reset() { *this = SaveData(); }
 Json SaveData::toJson() const {
@@ -71,7 +73,9 @@ Json SaveData::toJson() const {
   Json t = Json::makeObj(); t.set("step", Json::makeNum(tutorial.step)); t.set("done", Json::makeBool(tutorial.done)); t.set("rainbows", Json::makeNum(tutorial.rainbows)); t.set("buildings", Json::makeNum(tutorial.buildings)); j.set("tutorial", t);
   Json m = Json::makeArr(); for (auto& id : monsters) m.arr.push_back(Json::makeStr(id)); j.set("monsters", m);
   j.set("name", Json::makeStr(name)); j.set("lastPlayed", Json::makeStr(lastPlayed));
-  j.set("monster", Json::makeStr(monster)); j.set("adventureUnlocked", Json::makeBool(adventureUnlocked));
+  j.set("monster", Json::makeStr(monster)); j.set("eggs", Json::makeNum(eggs));
+  Json inf = Json::makeArr(); for (auto& id : infinity) inf.arr.push_back(Json::makeStr(id)); j.set("infinity", inf);
+  j.set("adventureUnlocked", Json::makeBool(adventureUnlocked));
   j.set("crazyUnlocked", Json::makeBool(crazyUnlocked)); j.set("bulkDefeated", Json::makeBool(bulkDefeated));
   return j;
 }
@@ -93,6 +97,8 @@ bool SaveData::fromJson(const Json& j) {
   monster = j["monster"].strOr(*monsters.begin()); if (!monsters.count(monster)) monster = *monsters.begin();
   version = (int)j["version"].numOr(2);
   if (version < 3) { prog::migrateCampaign(adventure); prog::migrateCampaign(crazy); prog::migrateCampaign(sandbox); version = 3; }
+  eggs = j.has("eggs") ? std::max(0, (int)j["eggs"].numOr(0)) : 30;
+  infinity.clear(); for (auto& id : j["infinity"].arr) infinity.insert(id.strOr(""));
   adventureUnlocked = j["adventureUnlocked"].boolOr(false);
   crazyUnlocked = j["crazyUnlocked"].boolOr(false); bulkDefeated = j["bulkDefeated"].boolOr(false);
   name = j["name"].strOr(""); lastPlayed = j["lastPlayed"].strOr("");
@@ -117,6 +123,12 @@ float damageMult(int l) { return 1 + C.damagePerLevel * (l - 1); }
 float rangeMult(int l) { return 1 + C.rangePerLevel * (l - 1); }
 float speedMult(int l) { return 1 + C.speedPerLevel * (l - 1); }
 int maxLevel() { return (int)C.upgradeSteps + 1; }
+std::string bossAfter(const std::string& requested, const std::string& previous) {
+  static const char* kOrder[] = {"supertank", "mech", "moth", "crab", "blimp"};
+  if (!requested.empty() && requested != previous) return requested;
+  for (const char* id : kOrder) if (std::string(id) != previous) return id;
+  return "supertank";
+}
 int upgradeCost(int l) { return C.upgradeCost(l); }
 int buyUpgrade(Profile& p, Upgrade u) {
   int& l = u == UP_DAMAGE ? p.dmgLvl : u == UP_RANGE ? p.rangeLvl : p.speedLvl;
