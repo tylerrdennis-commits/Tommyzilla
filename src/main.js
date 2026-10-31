@@ -1,6 +1,16 @@
 import * as THREE from 'three';
 import { createCharacterController } from './character/controller.js';
+import { createCharacterModel } from './character/model.js';
 import { spawnShownCharacters } from './character/spawn.js';
+import { getVariant, listVariants } from './character/variants.js';
+import {
+  SHINY_ODDS_COPY,
+  STARTING_EGGS,
+  applyShinyRoll,
+  blockedReason,
+  describeShinyRoll,
+  rollShinyChance,
+} from './character/shinyRoll.js';
 
 const canvas = document.querySelector('#view');
 const menu = document.querySelector('#menu');
@@ -8,6 +18,12 @@ const playHint = document.querySelector('#play-hint');
 const playName = document.querySelector('#play-name');
 const playButton = document.querySelector('#play');
 const rosterList = document.querySelector('#roster');
+const variantList = document.querySelector('#variant-list');
+const eggCount = document.querySelector('#egg-count');
+const shinyOdds = document.querySelector('#shiny-odds');
+const shinyButton = document.querySelector('#shiny-chance');
+const eggBlock = document.querySelector('#egg-block');
+const shinyResult = document.querySelector('#shiny-result');
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -40,6 +56,11 @@ scene.add(new THREE.GridHelper(24, 24, '#1c6f66', '#243238'));
 const roster = spawnShownCharacters();
 const slots = { yeti: 4.2, tommyzilla: 6.25, dragon: 8.3 };
 let active = roster[0];
+let rosterActive = active;
+let selectedVariantId = null;
+let eggs = STARTING_EGGS;
+const shinyOwned = new Map();
+let variantActor = null;
 const controllers = new Map();
 for (const entry of roster) {
   scene.add(entry.scene);
@@ -47,6 +68,8 @@ for (const entry of roster) {
   controllers.set(entry, createCharacterController(entry));
 }
 renderRoster();
+renderVariants();
+renderEggs();
 
 const keys = new Set();
 const input = { forward: false, back: false, left: false, right: false };
@@ -99,12 +122,25 @@ function enterPlay() {
   autoWalk = true;
   menu.classList.add('hidden');
   playHint.classList.remove('hidden');
-  playName.textContent = active.displayName;
-  for (const entry of roster) {
-    entry.scene.visible = entry === active;
+  if (selectedVariantId) {
+    const shiny = shinyOwned.get(selectedVariantId) === true;
+    if (!variantActor || variantActor.id !== selectedVariantId || variantActor.shiny !== shiny) {
+      showVariantActor(selectedVariantId, shiny);
+    }
+    active = variantActor.model;
+    for (const entry of roster) entry.scene.visible = false;
+    active.scene.visible = true;
+    active.scene.position.set(0, 0, 0);
+    active.scene.rotation.y = Math.PI / 2;
+    playName.textContent = shiny ? `Shiny ${active.displayName}` : active.displayName;
+  } else {
+    if (variantActor) variantActor.model.scene.visible = false;
+    active = rosterActive;
+    playName.textContent = active.displayName;
+    for (const entry of roster) entry.scene.visible = entry === active;
+    active.scene.position.set(0, 0, 0);
+    active.scene.rotation.y = Math.PI / 2;
   }
-  active.scene.position.set(0, 0, 0);
-  active.scene.rotation.y = Math.PI / 2;
   activeController().setMoving(true);
 }
 
@@ -116,7 +152,15 @@ function enterMenu() {
   keys.clear();
   syncInput();
   menuTime = 0;
+  active = rosterActive;
   for (const entry of roster) entry.scene.visible = true;
+  if (selectedVariantId) {
+    const shiny = shinyOwned.get(selectedVariantId) === true;
+    if (!variantActor || variantActor.id !== selectedVariantId || variantActor.shiny !== shiny) {
+      showVariantActor(selectedVariantId, shiny);
+    }
+    variantActor.model.scene.visible = false;
+  }
 }
 
 playButton.addEventListener('click', enterPlay);
@@ -153,6 +197,7 @@ function frame(dt) {
       entry.scene.position.set(slots[entry.scene.userData.characterId] + bob, 0, 0);
       entry.scene.rotation.y = face;
     }
+    if (variantActor) variantActor.model.scene.visible = false;
     camera.position.set(3.5, 2.35, 8.4);
     camera.lookAt(3.5, 1.15, 0);
     return;
@@ -187,6 +232,12 @@ window.__tommyzilla = {
   enterPlay,
   enterMenu,
   identities,
+  variants,
+  selectVariant,
+  spendShiny,
+  setEggs,
+  eggState,
+  preview,
   get mode() { return mode; },
 };
 
@@ -213,7 +264,7 @@ function renderRoster() {
     button.type = 'button';
     button.className = 'roster-item';
     button.dataset.characterId = entry.scene.userData.characterId;
-    button.setAttribute('aria-pressed', String(entry === active));
+    button.setAttribute('aria-pressed', String(!selectedVariantId && entry === rosterActive));
     const swatch = document.createElement('span');
     swatch.className = 'swatch';
     swatch.style.background = `#${entry.scene.getObjectByName('Torso').material.color.getHexString()}`;
@@ -221,28 +272,188 @@ function renderRoster() {
     label.textContent = entry.displayName;
     button.append(swatch, label);
     button.addEventListener('click', () => {
+      rosterActive = entry;
       active = entry;
+      selectedVariantId = null;
+      clearVariantActor();
       renderRoster();
+      renderVariants();
+      renderEggs();
     });
     rosterList.append(button);
   }
 }
 
+shinyButton.addEventListener('click', () => {
+  spendShiny();
+});
+
+function renderVariants() {
+  variantList.replaceChildren();
+  for (const variant of listVariants()) {
+    const shiny = shinyOwned.get(variant.id) === true;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = shiny ? 'variant-item shiny' : 'variant-item';
+    button.dataset.variantId = variant.id;
+    button.setAttribute('aria-pressed', String(variant.id === selectedVariantId));
+    const swatch = document.createElement('span');
+    swatch.className = 'swatch';
+    swatch.style.background = (shiny ? variant.shinyPalette : variant.palette).body;
+    const label = document.createElement('span');
+    label.textContent = shiny ? `★ ${variant.displayName}` : variant.displayName;
+    button.append(swatch, label);
+    button.addEventListener('click', () => {
+      selectVariant(variant.id);
+    });
+    variantList.append(button);
+  }
+}
+
+function renderEggs(result = null, variant = null) {
+  eggCount.textContent = `Eggs: ${eggs}`;
+  shinyOdds.textContent = SHINY_ODDS_COPY;
+  const blocked = blockedReason({ eggs, variantId: selectedVariantId });
+  shinyButton.disabled = blocked !== '';
+  shinyButton.setAttribute('aria-disabled', String(blocked !== ''));
+  eggBlock.textContent = blocked;
+  eggBlock.classList.toggle('hidden', blocked === '');
+  if (result && variant) {
+    shinyResult.textContent = describeShinyRoll({
+      shiny: result.shiny,
+      variantName: variant.displayName,
+      eggs: result.eggs,
+    });
+  }
+}
+
+function selectVariant(id) {
+  selectedVariantId = id;
+  showVariantActor(id, shinyOwned.get(id) === true);
+  renderRoster();
+  renderVariants();
+  renderEggs();
+  return preview();
+}
+
+function spendShiny({ random } = {}) {
+  const result = rollShinyChance(eggs, { variantId: selectedVariantId, random });
+  const variant = selectedVariantId ? getVariant(selectedVariantId) : null;
+  if (result.ok && variant) {
+    eggs = result.eggs;
+    shinyOwned.set(variant.id, applyShinyRoll(shinyOwned.get(variant.id) === true, result));
+    showVariantActor(variant.id, shinyOwned.get(variant.id) === true);
+  }
+  renderVariants();
+  renderEggs(result.ok ? result : null, variant);
+  return {
+    ...result,
+    eggs,
+    blocked: blockedReason({ eggs, variantId: selectedVariantId }),
+    oddsCopy: SHINY_ODDS_COPY,
+    canSpend: blockedReason({ eggs, variantId: selectedVariantId }) === '',
+    preview: preview(),
+  };
+}
+
+function setEggs(count) {
+  eggs = count;
+  renderEggs();
+  return eggState();
+}
+
+function eggState() {
+  const blocked = blockedReason({ eggs, variantId: selectedVariantId });
+  return {
+    eggs,
+    selectedVariantId,
+    blocked,
+    oddsCopy: SHINY_ODDS_COPY,
+    canSpend: blocked === '',
+    result: shinyResult.textContent,
+  };
+}
+
+function variants() {
+  return listVariants().map((variant) => ({
+    id: variant.id,
+    displayName: variant.displayName,
+    modelKind: variant.modelKind,
+    shiny: shinyOwned.get(variant.id) === true,
+    body: variant.palette.body,
+    shinyBody: variant.shinyPalette.body,
+  }));
+}
+
+function preview() {
+  if (!variantActor) return null;
+  const sceneRoot = variantActor.model.scene;
+  const torso = sceneRoot.getObjectByName('Torso');
+  return {
+    id: variantActor.id,
+    displayName: variantActor.model.displayName,
+    modelKind: sceneRoot.userData.modelKind,
+    shiny: sceneRoot.userData.shiny === true,
+    body: torso.material.color.getHexString(),
+    visible: sceneRoot.visible,
+    nameplate: sceneRoot.getObjectByName('Nameplate').userData.label,
+    spark: Boolean(sceneRoot.getObjectByName('ShinySpark')),
+    clip: variantActor.controller.clipName(),
+  };
+}
+
+function showVariantActor(id, shiny) {
+  clearVariantActor();
+  const model = createCharacterModel(id, { shiny });
+  scene.add(model.scene);
+  attachNameSprite(model);
+  const controller = createCharacterController(model);
+  controllers.set(model, controller);
+  variantActor = { model, controller, id, shiny };
+  model.scene.visible = mode === 'play';
+}
+
+function clearVariantActor() {
+  if (!variantActor) return;
+  controllers.delete(variantActor.model);
+  scene.remove(variantActor.model.scene);
+  disposeScene(variantActor.model.scene);
+  variantActor = null;
+}
+
+function disposeScene(root) {
+  root.traverse((obj) => {
+    if (obj.geometry) obj.geometry.dispose();
+    const materials = obj.material
+      ? (Array.isArray(obj.material) ? obj.material : [obj.material])
+      : [];
+    for (const material of materials) {
+      if (material.map) material.map.dispose();
+      material.dispose();
+    }
+  });
+}
+
 function attachNameSprite(entry) {
   const plate = entry.scene.getObjectByName('Nameplate');
   const label = plate.userData.label;
+  const shown = entry.scene.userData.shiny ? `★ ${label}` : label;
+  const wide = shown.length > 12;
   const nameCanvas = document.createElement('canvas');
-  nameCanvas.width = 512;
+  nameCanvas.width = wide ? 640 : 512;
   nameCanvas.height = 128;
   const ctx = nameCanvas.getContext('2d');
-  ctx.font = '700 72px Impact, Arial Black, sans-serif';
+  ctx.font = wide
+    ? '700 52px Impact, Arial Black, sans-serif'
+    : '700 72px Impact, Arial Black, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.lineWidth = 12;
   ctx.strokeStyle = '#08211c';
-  ctx.fillStyle = '#ffffff';
-  ctx.strokeText(label, 256, 68);
-  ctx.fillText(label, 256, 68);
+  ctx.fillStyle = entry.scene.userData.shiny ? '#ffe56a' : '#ffffff';
+  const center = wide ? 320 : 256;
+  ctx.strokeText(shown, center, 68);
+  ctx.fillText(shown, center, 68);
   const texture = new THREE.CanvasTexture(nameCanvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({

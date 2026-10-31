@@ -1,6 +1,7 @@
 /**
  * Base identity catalog. One record owns the display name, the model kind,
- * and the skin. Variants and shinies are later phases and are not listed here.
+ * and the skin for the three heroes on the title lineup.
+ * Player variants and shinies live in variants.js and do not rename these ids.
  */
 export const SHOWN_CHARACTERS = [
   {

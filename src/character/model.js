@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { getCharacter } from './catalog.js';
+import { findVariant } from './variants.js';
 
 const ARM_DOWN_Z = Math.PI / 2;
 
@@ -8,9 +9,24 @@ const ARM_DOWN_Z = Math.PI / 2;
  * Clip order matches a common GLTF export: static TPose first, then an
  * unrelated attack, then the clips locomotion should actually play.
  */
-export function createCharacterModel(id = 'tommyzilla') {
-  const character = getCharacter(id);
+export function createCharacterModel(id = 'tommyzilla', { shiny = false } = {}) {
+  const variant = findVariant(id);
+  const character = variant
+    ? {
+        id: variant.id,
+        displayName: variant.displayName,
+        modelKind: variant.modelKind,
+        palette: shiny ? variant.shinyPalette : variant.palette,
+        features: variant.features,
+        shiny,
+      }
+    : {
+        ...getCharacter(id),
+        features: [],
+        shiny: false,
+      };
   const { body, limb, limbShade, eye, mark } = character.palette;
+  const isShiny = character.shiny;
   const scene = new THREE.Group();
   scene.name = character.displayName;
 
@@ -46,19 +62,20 @@ export function createCharacterModel(id = 'tommyzilla') {
   rightShin.add(rightFoot);
   tail.add(tailTip);
 
-  const torso = createBoundTorso(hips, body);
+  const torso = createBoundTorso(hips, body, isShiny);
   scene.add(torso);
 
-  addLimbMesh(leftUpper, new THREE.Vector3(-0.18, 0, 0), [0.4, 0.18, 0.18], limb);
-  addLimbMesh(leftLower, new THREE.Vector3(-0.16, 0, 0), [0.36, 0.16, 0.16], limbShade);
-  addLimbMesh(rightUpper, new THREE.Vector3(0.18, 0, 0), [0.4, 0.18, 0.18], limb);
-  addLimbMesh(rightLower, new THREE.Vector3(0.16, 0, 0), [0.36, 0.16, 0.16], limbShade);
-  addLimbMesh(leftThigh, new THREE.Vector3(0, -0.24, 0), [0.22, 0.5, 0.22], limb);
-  addLimbMesh(leftShin, new THREE.Vector3(0, -0.22, 0), [0.18, 0.46, 0.18], limbShade);
-  addLimbMesh(rightThigh, new THREE.Vector3(0, -0.24, 0), [0.22, 0.5, 0.22], limb);
-  addLimbMesh(rightShin, new THREE.Vector3(0, -0.22, 0), [0.18, 0.46, 0.18], limbShade);
-  addLimbMesh(head, new THREE.Vector3(0, 0.16, 0.04), [0.5, 0.4, 0.46], limb);
-  addSilhouette(character.modelKind, { spine, head, chest, tail, mark, limbShade });
+  addLimbMesh(leftUpper, new THREE.Vector3(-0.18, 0, 0), [0.4, 0.18, 0.18], limb, isShiny);
+  addLimbMesh(leftLower, new THREE.Vector3(-0.16, 0, 0), [0.36, 0.16, 0.16], limbShade, isShiny);
+  addLimbMesh(rightUpper, new THREE.Vector3(0.18, 0, 0), [0.4, 0.18, 0.18], limb, isShiny);
+  addLimbMesh(rightLower, new THREE.Vector3(0.16, 0, 0), [0.36, 0.16, 0.16], limbShade, isShiny);
+  addLimbMesh(leftThigh, new THREE.Vector3(0, -0.24, 0), [0.22, 0.5, 0.22], limb, isShiny);
+  addLimbMesh(leftShin, new THREE.Vector3(0, -0.22, 0), [0.18, 0.46, 0.18], limbShade, isShiny);
+  addLimbMesh(rightThigh, new THREE.Vector3(0, -0.24, 0), [0.22, 0.5, 0.22], limb, isShiny);
+  addLimbMesh(rightShin, new THREE.Vector3(0, -0.22, 0), [0.18, 0.46, 0.18], limbShade, isShiny);
+  addLimbMesh(head, new THREE.Vector3(0, 0.16, 0.04), [0.5, 0.4, 0.46], limb, isShiny);
+  addSilhouette(character.modelKind, { spine, head, chest, tail, mark, limbShade, shiny: isShiny });
+  addFeatures(character.features, { spine, head, chest, tail }, mark, isShiny);
 
   const eyeMat = new THREE.MeshBasicMaterial({ color: eye });
   const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 8), eyeMat);
@@ -72,12 +89,23 @@ export function createCharacterModel(id = 'tommyzilla') {
   const nameplate = new THREE.Object3D();
   nameplate.name = 'Nameplate';
   nameplate.userData.label = character.displayName;
-  nameplate.position.set(0, 2.25, 0);
+  nameplate.position.set(0, 2.62, 0);
   scene.add(nameplate);
+
+  if (isShiny) {
+    const spark = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.1, 0),
+      new THREE.MeshBasicMaterial({ color: '#ffe56a' }),
+    );
+    spark.name = 'ShinySpark';
+    spark.position.set(0, 0.16, 0.3);
+    chest.add(spark);
+  }
 
   scene.userData.characterId = character.id;
   scene.userData.displayName = character.displayName;
   scene.userData.modelKind = character.modelKind;
+  scene.userData.shiny = isShiny;
 
   return {
     scene,
@@ -86,7 +114,16 @@ export function createCharacterModel(id = 'tommyzilla') {
   };
 }
 
-function createBoundTorso(hips, color) {
+function lambert(color, shiny) {
+  const material = new THREE.MeshLambertMaterial({ color });
+  if (shiny) {
+    material.emissive = new THREE.Color(color);
+    material.emissiveIntensity = 0.55;
+  }
+  return material;
+}
+
+function createBoundTorso(hips, color, shiny = false) {
   const geometry = new THREE.BoxGeometry(0.78, 0.72, 0.42);
   geometry.translate(0, 1.38, 0);
   const count = geometry.attributes.position.count;
@@ -100,7 +137,7 @@ function createBoundTorso(hips, color) {
 
   const torso = new THREE.SkinnedMesh(
     geometry,
-    new THREE.MeshLambertMaterial({ color }),
+    lambert(color, shiny),
   );
   torso.name = 'Torso';
   torso.userData.part = 'body';
@@ -213,10 +250,10 @@ function marker(name, x, y, z) {
   return next;
 }
 
-function addLimbMesh(parent, offset, size, color) {
+function addLimbMesh(parent, offset, size, color, shiny = false) {
   const mesh = new THREE.Mesh(
     new THREE.BoxGeometry(size[0], size[1], size[2]),
-    new THREE.MeshLambertMaterial({ color }),
+    lambert(color, shiny),
   );
   mesh.position.copy(offset);
   mesh.castShadow = true;
@@ -225,30 +262,30 @@ function addLimbMesh(parent, offset, size, color) {
   return mesh;
 }
 
-function addSilhouette(modelKind, { spine, head, chest, tail, mark, limbShade }) {
+function addSilhouette(modelKind, { spine, head, chest, tail, mark, limbShade, shiny = false }) {
   if (modelKind === 'dinosaur') {
     [0.28, 0.46, 0.62].forEach((y, index) => {
-      const plate = markMesh('DorsalPlate', [0.16, 0.28 - index * 0.04, 0.1], mark);
+      const plate = markMesh('DorsalPlate', [0.16, 0.28 - index * 0.04, 0.1], mark, shiny);
       plate.position.set(0, y, -0.4);
       spine.add(plate);
     });
   }
 
   if (modelKind === 'yeti') {
-    const brow = markMesh('Brow', [0.52, 0.16, 0.2], mark);
+    const brow = markMesh('Brow', [0.52, 0.16, 0.2], mark, shiny);
     brow.position.set(0, 0.34, 0.22);
     head.add(brow);
   }
 
   if (modelKind === 'dragon') {
-    const snout = markMesh('Snout', [0.18, 0.14, 0.42], mark);
+    const snout = markMesh('Snout', [0.18, 0.14, 0.42], mark, shiny);
     snout.position.set(0, 0.06, 0.38);
     head.add(snout);
-    const leftWing = markMesh('Wing', [0.85, 0.1, 0.42], mark);
+    const leftWing = markMesh('Wing', [0.85, 0.1, 0.42], mark, shiny);
     leftWing.position.set(-0.7, 0.28, -0.12);
     leftWing.rotation.z = 0.7;
     leftWing.rotation.y = -0.4;
-    const rightWing = markMesh('Wing', [0.85, 0.1, 0.42], mark);
+    const rightWing = markMesh('Wing', [0.85, 0.1, 0.42], mark, shiny);
     rightWing.position.set(0.7, 0.28, -0.12);
     rightWing.rotation.z = -0.7;
     rightWing.rotation.y = 0.4;
@@ -256,16 +293,30 @@ function addSilhouette(modelKind, { spine, head, chest, tail, mark, limbShade })
   }
 
   if (modelKind !== 'yeti') {
-    const tailMesh = markMesh('TailMesh', [0.16, 0.16, 0.4], limbShade);
+    const tailMesh = markMesh('TailMesh', [0.16, 0.16, 0.4], limbShade, shiny);
     tailMesh.position.set(0, 0, -0.16);
     tail.add(tailMesh);
   }
 }
 
-function markMesh(name, size, color) {
+function addFeatures(features, bones, color, shiny) {
+  for (const feature of features ?? []) {
+    const mesh = markMesh(feature.name, feature.size, color, shiny);
+    mesh.position.set(feature.position[0], feature.position[1], feature.position[2]);
+    const [x, y, z] = feature.rotation ?? [0, 0, 0];
+    mesh.rotation.set(x, y, z);
+    const bone = bones[feature.bone];
+    if (!bone) {
+      throw new Error(`Variant feature ${feature.name} has no bone ${feature.bone}`);
+    }
+    bone.add(mesh);
+  }
+}
+
+function markMesh(name, size, color, shiny = false) {
   const mesh = new THREE.Mesh(
     new THREE.BoxGeometry(size[0], size[1], size[2]),
-    new THREE.MeshLambertMaterial({ color }),
+    lambert(color, shiny),
   );
   mesh.name = name;
   mesh.userData.identityMark = true;
