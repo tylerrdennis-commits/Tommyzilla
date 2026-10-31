@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tommyzilla</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --charcoal: #141a1e;
+        --panel: rgba(20, 26, 30, 0.82);
+        --cyan: #3ee0c5;
+        --steel: #d5dde6;
+        --dusk: #243038;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; background: var(--charcoal); }
+      body {
+        font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+        color: var(--steel);
+        overflow: hidden;
+      }
+      #view { display: block; width: 100%; height: 100%; }
+      .hud {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: flex-start;
+        padding: 32px 40px;
+        gap: 12px;
+      }
+      h1 {
+        margin: 0;
+        font-family: Impact, "Arial Black", sans-serif;
+        font-size: clamp(32px, 4vw, 48px);
+        letter-spacing: 0.04em;
+        line-height: 0.95;
+        color: white;
+        text-shadow: 0 0 24px rgba(62, 224, 197, 0.45);
+      }
+      p { margin: 0; font-size: 18px; max-width: 36rem; text-align: center; }
+      button {
+        pointer-events: auto;
+        min-height: 52px;
+        min-width: 180px;
+        padding: 0 28px;
+        border: 0;
+        border-radius: 12px;
+        background: var(--cyan);
+        color: #08211c;
+        font: 700 20px/1 "Segoe UI", sans-serif;
+        letter-spacing: 0.06em;
+        cursor: pointer;
+        box-shadow: 0 8px 28px rgba(62, 224, 197, 0.28);
+      }
+      button:hover, button:focus-visible {
+        outline: 3px solid white;
+        outline-offset: 3px;
+        filter: brightness(1.08);
+      }
+      button:active { transform: scale(0.98); }
+      .panel {
+        pointer-events: none;
+        background: var(--panel);
+        border: 1px solid rgba(62, 224, 197, 0.35);
+        border-radius: 16px;
+        padding: 22px 28px 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+        width: min(440px, calc(100vw - 64px));
+      }
+      #play-hint {
+        position: fixed;
+        left: 20px;
+        bottom: 20px;
+        background: var(--dusk);
+        border-radius: 10px;
+        padding: 10px 14px;
+        font-size: 16px;
+      }
+      .hidden { display: none; }
+    </style>
+  </head>
+  <body>
+    <canvas id="view"></canvas>
+    <div class="hud" id="menu">
+      <div class="panel">
+        <h1>TOMMYZILLA</h1>
+        <p>The title character is on a walk cycle. Press Play, then hold WASD to move.</p>
+        <button id="play" type="button">PLAY</button>
+      </div>
+    </div>
+    <div id="play-hint" class="hidden">Walking. WASD or arrows steer. Esc returns to the title.</div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
