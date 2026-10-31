@@ -12,6 +12,8 @@ import {
   rollShinyChance,
 } from './character/shinyRoll.js';
 import { createStoneSession } from './stones/session.js';
+import { bossBanner, createBossRun } from './boss/fight.js';
+import { mountBossHud } from './boss/hud.js';
 
 const canvas = document.querySelector('#view');
 const menu = document.querySelector('#menu');
@@ -85,6 +87,9 @@ const stones = createStoneSession({
   ground,
   getActive: () => active.scene,
 });
+const bossRun = createBossRun();
+let bossActor = null;
+const bossHud = mountBossHud(playHint, () => advanceBoss());
 
 function syncInput() {
   input.forward = keys.has('KeyW') || keys.has('ArrowUp');
@@ -151,6 +156,7 @@ function enterPlay() {
   }
   activeController().setMoving(true);
   stones.onEnterPlay();
+  showBoss(0);
 }
 
 function enterMenu() {
@@ -171,12 +177,17 @@ function enterMenu() {
     variantActor.model.scene.visible = false;
   }
   stones.onEnterMenu();
+  hideBoss();
 }
 
 playButton.addEventListener('click', enterPlay);
 window.addEventListener('keydown', (event) => {
   if (event.code === 'Escape' && mode === 'play') {
     enterMenu();
+    return;
+  }
+  if (event.code === 'KeyN' && mode === 'play') {
+    advanceBoss();
     return;
   }
   keys.add(event.code);
@@ -191,6 +202,75 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
+function advanceBoss() {
+  const snap = bossRun.advance();
+  if (mode === 'play') showBoss(0);
+  return snap;
+}
+
+function mountBoss(snap) {
+  clearBoss();
+  const model = createCharacterModel(snap.variantId, { shiny: snap.shiny });
+  scene.add(model.scene);
+  attachNameSprite(model);
+  const controller = createCharacterController(model);
+  controllers.set(model, controller);
+  bossActor = { model, controller, encounterId: snap.id, shiny: snap.shiny };
+}
+
+function clearBoss() {
+  if (!bossActor) return;
+  controllers.delete(bossActor.model);
+  scene.remove(bossActor.model.scene);
+  disposeScene(bossActor.model.scene);
+  bossActor = null;
+}
+
+function showBoss(dt) {
+  if (dt > 0) bossRun.update(dt);
+  const snap = bossRun.current();
+  if (!bossActor || bossActor.encounterId !== snap.id || bossActor.shiny !== snap.shiny) {
+    mountBoss(snap);
+  }
+  bossActor.controller.update(
+    dt,
+    { forward: snap.moving, back: false, left: false, right: false },
+    { slide: false },
+  );
+  bossActor.model.scene.position.set(
+    active.scene.position.x + snap.x,
+    0,
+    active.scene.position.z + snap.z,
+  );
+  bossActor.model.scene.rotation.y = snap.yaw;
+  bossActor.model.scene.visible = true;
+  bossHud.show(bossBanner(snap));
+  return snap;
+}
+
+function hideBoss() {
+  if (bossActor) bossActor.model.scene.visible = false;
+}
+
+function bossActorView() {
+  if (!bossActor) return null;
+  const sceneRoot = bossActor.model.scene;
+  const torso = sceneRoot.getObjectByName('Torso');
+  return {
+    id: bossActor.encounterId,
+    variantId: sceneRoot.userData.characterId,
+    displayName: bossActor.model.displayName,
+    shiny: sceneRoot.userData.shiny === true,
+    nameplate: sceneRoot.getObjectByName('Nameplate').userData.label,
+    body: torso.material.color.getHexString(),
+    spark: Boolean(sceneRoot.getObjectByName('ShinySpark')),
+    clip: bossActor.controller.clipName(),
+    visible: sceneRoot.visible,
+    x: sceneRoot.position.x,
+    z: sceneRoot.position.z,
+  };
+}
 
 function frame(dt) {
   if (mode === 'menu') {
@@ -208,6 +288,7 @@ function frame(dt) {
       entry.scene.rotation.y = face;
     }
     if (variantActor) variantActor.model.scene.visible = false;
+    hideBoss();
     camera.position.set(3.5, 2.35, 8.4);
     camera.lookAt(3.5, 1.15, 0);
     return;
@@ -222,6 +303,7 @@ function frame(dt) {
   activeController().update(stones.scaledDt(dt), playInput);
   stones.boostStride(active.scene, before);
   stones.syncPlay(active.scene, dt);
+  showBoss(stones.scaledDt(dt));
   const yaw = active.scene.rotation.y;
   const forward = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
   const right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
@@ -256,6 +338,13 @@ window.__tommyzilla = {
     selected: () => stones.selected(),
     toggle: (id) => stones.toggle(id),
     snapshot: () => stones.snapshot(),
+  },
+  bosses: {
+    current: () => bossRun.current(),
+    history: () => bossRun.history(),
+    advance: () => advanceBoss(),
+    banner: () => bossHud.text(),
+    actor: () => bossActorView(),
   },
   get mode() { return mode; },
 };

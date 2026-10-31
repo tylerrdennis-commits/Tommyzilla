@@ -12,7 +12,7 @@ Phase 3a adds 16 player variants in `src/character/variants.js`. Each variant ha
 | Yeti | yeti | White body and limbs, heavy brow, no tail |
 | Dragon | dragon | Green body and limbs, snout, two wings, a tail |
 
-No NPCs are shown in this build. The game title in the panel is the title, not a character name.
+The game title in the panel is the title, not a character name. Bosses are separate encounters and are not part of the title lineup.
 
 ## Run
 
@@ -26,7 +26,7 @@ Open the dev server. The title screen shows three walking heroes. Left to right 
 
 The variant dock lists 16 more looks. The title lineup stays Yeti, Tommyzilla, and Dragon. Pick a variant, then press Play to bring that mesh onto the field. The dock shows the egg count and the line "Spend 10 eggs for a 1 in 10 chance at a shiny. This is a chance, not a guarantee." Spend 10 eggs rolls the selected variant. A hit switches that variant to its shiny colors. With fewer than 10 eggs the button stays disabled and the dock says you need 10. A miss keeps a shiny you already earned.
 
-`node scripts/verify-walk.mjs` checks locomotion in a headless browser: menu walk, play walk, idle arms down, and Esc back to the walk cycle. `node scripts/verify-names.mjs` checks the spot-check list: each roster label, nameplate, and play-mode hint matches the skin of that hero. `node scripts/verify-variants.mjs` checks the 16-variant list, the odds copy, a refused spend below 10 eggs, a miss, a shiny hit, and that the shiny still walks. `node scripts/verify-stones.mjs` checks the Infinity Stone picker, each explanation, and that an equipped stone changes the run. The dev server must already be running.
+`node scripts/verify-walk.mjs` checks locomotion in a headless browser: menu walk, play walk, idle arms down, and Esc back to the walk cycle. `node scripts/verify-names.mjs` checks the spot-check list: each roster label, nameplate, and play-mode hint matches the skin of that hero. `node scripts/verify-variants.mjs` checks the 16-variant list, the odds copy, a refused spend below 10 eggs, a miss, a shiny hit, and that the shiny still walks. `node scripts/verify-stones.mjs` checks the Infinity Stone picker, each explanation, and that an equipped stone changes the run. `node scripts/verify-bosses.mjs` checks that a play session shows a variant boss, that Next boss and the N key rotate the fight, and that a short sequence never repeats the same encounter. The dev server must already be running.
 
 ## Infinity Stones
 
@@ -40,3 +40,28 @@ The title screen lists the Infinity Stones in the roster panel, above Play. Ever
 | Power | Swells the hero's size for the run. |
 | Time | Slows the run, easing each step. |
 | Soul | An aura that follows the hero. |
+
+## Bosses
+
+Press Play and a boss from the variant pool enters beside you. There are 16 encounters, one for each variant, and each encounter has its own fight script. Eight of them are shiny. The banner names the creature and the pattern. The boss walks while the script is moving and stands idle on a pause beat. The script is an offset from the hero, so the boss stays in the side view while you walk.
+
+A fight lasts 8 seconds, then the next encounter starts. Next boss, or the N key, skips ahead. One cycle uses every encounter once. The fight after that is a new shuffle, and it does not open on the boss that just ended. Leaving with Esc pauses the same fight, so the next Play continues it instead of repeating the opener.
+
+| Boss | Pattern | Shiny |
+| --- | --- | --- |
+| Moss Titan | Charges straight down the lane | No |
+| Frost Warden | Charges across the lane | Yes |
+| Vine Wyrm | Circles a wide ring | No |
+| Copper Raptor | Circles a tight ring backward | Yes |
+| Basalt Golem | Cuts across the near edge | No |
+| Luna Moth | Cuts across the far edge | Yes |
+| Tide Serpent | Holds still, then lunges | No |
+| Amber Beetle | Holds still, then lunges sideways | Yes |
+| Cinder Phoenix | Spirals outward from the center | No |
+| Ink Kraken | Spirals inward from the rim | Yes |
+| Ivory Mammoth | Weaves forward along a sine path | No |
+| Gale Griffin | Weaves sideways along a sine path | Yes |
+| Crimson Oni | Closes in along the corners | No |
+| Reef Shark | Closes in along a diamond | Yes |
+| Prism Warden | Stomps, then steps ahead | No |
+| Thorn Stag | Stomps around a ring | Yes |
