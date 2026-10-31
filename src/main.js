@@ -11,6 +11,7 @@ import {
   describeShinyRoll,
   rollShinyChance,
 } from './character/shinyRoll.js';
+import { createStoneSession } from './stones/session.js';
 
 const canvas = document.querySelector('#view');
 const menu = document.querySelector('#menu');
@@ -77,6 +78,13 @@ let mode = 'menu';
 let menuTime = 0;
 let autoWalk = false;
 const clock = new THREE.Clock();
+const stones = createStoneSession({
+  menu,
+  playHint,
+  scene,
+  ground,
+  getActive: () => active.scene,
+});
 
 function syncInput() {
   input.forward = keys.has('KeyW') || keys.has('ArrowUp');
@@ -142,6 +150,7 @@ function enterPlay() {
     active.scene.rotation.y = Math.PI / 2;
   }
   activeController().setMoving(true);
+  stones.onEnterPlay();
 }
 
 function enterMenu() {
@@ -161,6 +170,7 @@ function enterMenu() {
     }
     variantActor.model.scene.visible = false;
   }
+  stones.onEnterMenu();
 }
 
 playButton.addEventListener('click', enterPlay);
@@ -208,7 +218,10 @@ function frame(dt) {
   const playInput = autoWalk
     ? { forward: true, back: false, left: false, right: false }
     : input;
-  activeController().update(dt, playInput);
+  const before = active.scene.position.clone();
+  activeController().update(stones.scaledDt(dt), playInput);
+  stones.boostStride(active.scene, before);
+  stones.syncPlay(active.scene, dt);
   const yaw = active.scene.rotation.y;
   const forward = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
   const right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
@@ -238,6 +251,12 @@ window.__tommyzilla = {
   setEggs,
   eggState,
   preview,
+  stones: {
+    list: () => stones.list(),
+    selected: () => stones.selected(),
+    toggle: (id) => stones.toggle(id),
+    snapshot: () => stones.snapshot(),
+  },
   get mode() { return mode; },
 };
 
