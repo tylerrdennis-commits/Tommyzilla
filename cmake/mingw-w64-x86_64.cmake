@@ -1,0 +1,13 @@
+# Cross-compile toolchain for mingw-w64 (posix threads variant), e.g. Debian/Ubuntu package g++-mingw-w64-x86-64-posix
+set(CMAKE_SYSTEM_NAME Windows)
+set(CMAKE_SYSTEM_PROCESSOR x86_64)
+find_program(TZ_MINGW_CXX NAMES x86_64-w64-mingw32-g++-posix x86_64-w64-mingw32-g++ REQUIRED)
+find_program(TZ_MINGW_RC NAMES x86_64-w64-mingw32-windres)
+set(CMAKE_CXX_COMPILER ${TZ_MINGW_CXX})
+if(TZ_MINGW_RC)
+  set(CMAKE_RC_COMPILER ${TZ_MINGW_RC})
+endif()
+set(CMAKE_FIND_ROOT_PATH /usr/x86_64-w64-mingw32)
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)

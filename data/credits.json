@@ -1,0 +1,128 @@
+{
+ "_doc": "Ending credits (edit freely). 'sections' roll in order; each line is [role, name] or [text]. 'sources' lists the asset origins the Special Thanks may name; tests check every thanked name is in this list AND in data/models.json / assets/CREDITS.txt.",
+ "title": "TOMMYZILLA CITY SMASH",
+ "sections": [
+  {
+   "head": "",
+   "lines": [
+    [
+     "Directed by Tommy M. Dennis"
+    ],
+    [
+     "Written by Tommy M. Dennis"
+    ],
+    [
+     "Dedicated to Tommy M. Dennis"
+    ]
+   ]
+  },
+  {
+   "head": "CREDITS",
+   "lines": [
+    [
+     "Game Design",
+     "Tommy M. Dennis & Tyler Dennis"
+    ],
+    [
+     "Programming",
+     "Computer"
+    ],
+    [
+     "Art Direction",
+     "Tommy M. Dennis & Tyler Dennis"
+    ],
+    [
+     "3D Modeling",
+     "Quaternius, Kenney, kazuma (CC0) + primitive shapes by Computer"
+    ],
+    [
+     "Ground Textures",
+     "Procedurally generated tileable textures by Computer (CC0)"
+    ],
+    [
+     "Animation",
+     "Quaternius (CC0 rigs and clips) + procedural animation by Computer"
+    ],
+    [
+     "Sound Design",
+     "Procedural audio synthesised in code by Computer"
+    ],
+    [
+     "Music",
+     "Procedural music synthesised in code by Computer"
+    ],
+    [
+     "Enemy Design",
+     "Tommy M. Dennis & Tyler Dennis"
+    ],
+    [
+     "Boss Design",
+     "Tommy M. Dennis & Tyler Dennis"
+    ],
+    [
+     "UI/UX Design",
+     "Computer"
+    ],
+    [
+     "QA Testing",
+     "Tommy M. Dennis"
+    ],
+    [
+     "Producer",
+     "Tyler Dennis"
+    ]
+   ]
+  },
+  {
+   "head": "SPECIAL THANKS",
+   "thanks": true,
+   "lines": [
+    [
+     "A huge, heartfelt thank you to everyone who shares their work for free."
+    ],
+    [
+     "Quaternius - for the Ultimate Monsters (Dino / Tommyzilla, Yeti / Mega Mossback, Dragon Evolved / Sparkleraptor,"
+    ],
+    [
+     "  Blue Demon / THE BULK and the whole monster crew), the Mech Bee and Mech Fox, the SWAT cops, the soldiers,"
+    ],
+    [
+     "  the tank and the street props. Your monsters gave every kaiju its personality."
+    ],
+    [
+     "kazuma - for the helicopter that buzzes over Victoria."
+    ],
+    [
+     "Kenney - for the city buildings, roads, cars and the mini characters who fill the streets."
+    ],
+    [
+     "Poly Pizza (poly.pizza) and Kenney.nl - for making free CC0 assets easy to find and use."
+    ],
+    [
+     "Thank you for making games like this possible for kids everywhere."
+    ]
+   ]
+  },
+  {
+   "head": "",
+   "lines": [
+    [
+     "THE END"
+    ]
+   ]
+  }
+ ],
+ "sources": [
+  "Quaternius",
+  "kazuma",
+  "Kenney",
+  "poly.pizza",
+  "kenney.nl"
+ ],
+ "afterCredits": {
+  "video": "data/video/after_credits.mp4",
+  "sign": "Do not feed people.",
+  "endHold": 2.5,
+  "fallbackSeconds": 12
+ }
+}

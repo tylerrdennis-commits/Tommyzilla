@@ -1,0 +1,23 @@
+// 18 original monsters. plan = body plan built from primitives: biped | quad | blob | crab | bird | robot | serpent.
+// Stats are multipliers (1 = Tommyzilla baseline). Colours are hex. "starter" is unlocked from the start;
+// the campaign hatches the others in a shuffled order (one egg per level).
+[
+  {"id":"tommyzilla","variant":"","name":"Tommyzilla","plan":"biped","body":"12141a","accent":"3ad7ff","belly":"3a3f4c","scale":1.0,"speed":1.0,"hp":1.0,"melee":1.0,"power":1.0,"starter":true,"desc":"Charcoal kaiju with glowing cyan plates"},
+  {"id":"gloopzilla","variant":"drip","name":"Gloopzilla","plan":"blob","body":"7ad04a","accent":"b06bff","belly":"c8f0a0","scale":1.1,"speed":0.85,"hp":1.3,"melee":1.0,"power":0.9,"desc":"A wobbly lime goo-giant"},
+  {"id":"pinchington","variant":"","name":"Sir Pinchington","plan":"crab","body":"ff8a3a","accent":"ffffff","belly":"ffd0a0","scale":1.0,"speed":1.05,"hp":1.1,"melee":1.2,"power":0.85,"desc":"A very polite giant crab"},
+  {"id":"hootzooka","variant":"owl","name":"Hootzooka","plan":"bird","body":"2fa89a","accent":"ffd36b","belly":"c8f0e8","scale":0.95,"speed":1.25,"hp":0.85,"melee":0.9,"power":1.15,"desc":"A teal owl with laser-bright eyes"},
+  {"id":"roborumble","variant":"","name":"Robo-Rumble","plan":"robot","body":"9aa4b4","accent":"ff4fd8","belly":"5a6070","scale":1.05,"speed":0.9,"hp":1.25,"melee":1.1,"power":1.0,"desc":"Clanky steel bot with magenta lights"},
+  {"id":"noodlewyrm","variant":"","name":"Noodlewyrm","plan":"serpent","body":"ff9ac8","accent":"7affc8","belly":"ffe0ee","scale":1.0,"speed":1.15,"hp":0.9,"melee":1.0,"power":1.1,"desc":"A long, slurpy noodle dragon"},
+  {"id":"stompasaurus","variant":"neck","name":"Stompasaurus","plan":"quad","body":"5a9a4a","accent":"8a5a3a","belly":"c8d8a0","scale":1.1,"speed":0.95,"hp":1.2,"melee":1.15,"power":0.9,"desc":"Long-necked stomper"},
+  {"id":"mossback","variant":"shell","name":"Mega Mossback","plan":"quad","body":"6a7a5a","accent":"9ad04a","belly":"a8a49a","scale":1.2,"speed":0.75,"hp":1.5,"melee":1.1,"power":0.85,"desc":"A walking hill with a mossy shell"},
+  {"id":"fizzlefin","variant":"fins","name":"Fizzlefin","plan":"biped","body":"2a6fcf","accent":"ffffff","belly":"9ae8ff","scale":0.95,"speed":1.1,"hp":0.95,"melee":1.0,"power":1.15,"desc":"Fishy biped with fizzing fins"},
+  {"id":"bonkbeak","variant":"beak","name":"Bonkbeak","plan":"bird","body":"8a4ad0","accent":"ffa040","belly":"e0c8ff","scale":1.0,"speed":1.15,"hp":0.95,"melee":1.15,"power":0.95,"desc":"A purple bird with a mighty beak"},
+  {"id":"jellybellie","variant":"tentacles","name":"Jellybellie","plan":"blob","body":"ff6bd5","accent":"3ad7ff","belly":"ffd0f0","scale":1.0,"speed":0.95,"hp":1.15,"melee":0.9,"power":1.2,"desc":"A jiggly pink jelly"},
+  {"id":"clanksworth","variant":"hat","name":"Clanksworth","plan":"robot","body":"d8b040","accent":"1a2a6a","belly":"8a7020","scale":1.1,"speed":0.85,"hp":1.35,"melee":1.2,"power":0.9,"desc":"A golden butler-bot. Very proper."},
+  {"id":"clamshell","variant":"shell","name":"Captain Clamshell","plan":"crab","body":"f0e0c0","accent":"2fa89a","belly":"c8b890","scale":1.1,"speed":0.9,"hp":1.3,"melee":1.1,"power":0.9,"desc":"A crusty old sea captain crab"},
+  {"id":"sparkleraptor","variant":"slim","name":"Sparkleraptor","plan":"biped","body":"7a4ad0","accent":"ffd36b","belly":"c8a0ff","scale":0.9,"speed":1.3,"hp":0.8,"melee":1.1,"power":1.1,"desc":"A speedy violet raptor covered in glitter"},
+  {"id":"wobblewump","variant":"tall","name":"Wobblewump","plan":"blob","body":"ffe03a","accent":"12141a","belly":"fff3a0","scale":1.25,"speed":0.8,"hp":1.45,"melee":1.05,"power":0.9,"desc":"A tall, wobbly banana-yellow wump"},
+  {"id":"thunderhorn","variant":"horn","name":"Thunderhorn","plan":"quad","body":"3a3a8a","accent":"c8ccd4","belly":"6a6ab0","scale":1.05,"speed":1.05,"hp":1.15,"melee":1.2,"power":1.0,"desc":"Indigo charger with a silver horn"},
+  {"id":"slinkysnoot","variant":"long","name":"Slinkysnoot","plan":"serpent","body":"ff9a1f","accent":"9ad04a","belly":"ffd8a0","scale":1.15,"speed":1.2,"hp":0.9,"melee":0.95,"power":1.15,"desc":"Extra-long orange snoot-snake"},
+  {"id":"puffernaut","variant":"spikes","name":"Puffernaut","plan":"blob","body":"ff8a7a","accent":"9ae8ff","belly":"ffd0c8","scale":0.9,"speed":1.0,"hp":1.0,"melee":1.0,"power":1.25,"desc":"A puffy coral space-blob"}
+]

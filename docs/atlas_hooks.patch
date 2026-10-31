@@ -1,0 +1,235 @@
+--- a/src/game/game.h
++++ b/src/game/game.h
+@@ -2,7 +2,6 @@
+ // and gets a RenderList (instances + UI triangles), sound events, loop volumes and rumble back out.
+ #pragma once
+ #include "titan.h"
+-#include "vault_powers.h"  // Vault
+ #include <algorithm>
+ #include <functional>
+ #include <map>
+@@ -56,6 +55,7 @@
+   std::vector<GroundQuad> groundQuads;        // the same surfaces as textured top quads (+ intersection patches)
+   int nch = 8; int lastChunk = -1; int queryStamp = 0; float schoolMsgT = 0;
+   bool noRebuild = false;  // level flag (L13): smashed buildings stay smashed
++  std::vector<int> stoneBuildings, decoyBuildings; uint32_t stoneColor = 0xb04dff; uint32_t stonesFound = 0;  // Atlas: 6 gauntlet-stone hiding spots + 20 same-colour decoys (procedural city)
+   bool procedural = false; uint64_t citySeed = 0xC17E5EEDull;  // Atlas: adventure mode uses the invented procedural city (city_gen.cpp); sandbox = Victoria
+   std::vector<std::vector<int>> hash; int gn = 32; float cell = 25;
+   struct Ferry { Vec3 pos, home, vel; float yaw = 0, spin = 0; std::vector<Part> parts; } ferry;
+@@ -484,10 +484,6 @@
+   // Vault: menu style + bottom HUD bar (src/ui/ui_style.*, src/ui/hud_bar.*)
+   float menuAnim(const Menu& m); std::string menuAnimKey; float menuAnimStart = 0, menuPressT = 0;
+   void drawHudBar(UIDraw& u); bool hudBarClick(float x, float y); float lastW = 1280, lastH = 720;  // returns true if a bar button consumed the click
+-  vpow::State vault;                                   // Vault: kaiju powers + cheats (TODO Wren: persist via SaveData)
+-  struct PowerSpin { bool active = false, shown = false; float t = 0; int target = -1, laps = 3; } pspin;
+-  void openPowerSpinner(); void drawPowerSpin(UIDraw& u, Menu& m); void updatePowerSpin(float dt); void openCheats(); void vaultTick();
+-  void addKaijuPowerTiles(Menu& mm);  // store: the 5 kaiju-specific upgradable powers
+   std::string tutorialText(bool& isTutorial);
+   std::string levelHud();
+   std::string btn(const char* pad, const char* key) const { return usingPad ? pad : key; }
+@@ -544,6 +540,7 @@
+   void grantZookeeperKey();                               // silent: no toast, no message
+   std::vector<GateRun> gates;
+   void setupGates();
++  bool stoneRevealed(int stone);  // Atlas (atlas_stones.cpp): procedural city hides stone gates inside one purple building until it is smashed
+   void updateGates(float dt);
+   void openGate(GateRun& g);
+   void renderGates(RenderList& rl);
+--- a/src/game/arc.cpp
++++ b/src/game/arc.cpp
+@@ -30,6 +30,7 @@
+     toast("Walk up to each pedestal and press " + btn("LB+Y", "E") + " to place its stone (gauntlet on!)");
+   }
+   if (L.obj == ObjType::Stone) level.stoneTaken = false;
++  if (L.obj == ObjType::Stone && world.procedural) toast("A gauntlet stone is hidden in one of the PURPLE buildings - smash them to find it!");  // Atlas
+ }
+ void Game::repelKaiju(const Vec3& from) {
+   Vec3 d(kaiju.pos.x - from.x, 0, kaiju.pos.z - from.z); float l = length(d); d = l > 0.01f ? d * (1.f / l) : Vec3(0, 0, 1);
+@@ -42,6 +43,7 @@
+ bool Game::tryPickStone() {
+   const LevelDef& L = T.levels[level.idx];
+   if (L.obj != ObjType::Stone || level.stoneTaken || L.stone < 0 || L.stone >= (int)E.stones.size()) return false;
++  if (!stoneRevealed(L.stone)) return false;  // Atlas
+   GateRun* g = nullptr; for (auto& q : gates) if (q.stone == L.stone) g = &q;
+   if (!g || !g->open) return false;
+   level.stonePos = g->pos + Vec3(0, 0, -8);
+--- a/src/game/features.cpp
++++ b/src/game/features.cpp
+@@ -358,7 +358,8 @@
+   for (size_t i = 0; i < E.stones.size(); i++) {
+     const StoneDef& s = E.stones[i];
+     if (!adventure || s.level != lv) continue;
+-    GateRun r; r.id = "stone_" + s.id; r.pos = openSpot(s.x, s.z, 8); r.stone = (int)i; r.reward = "stone";
++    GateRun r; r.id = "stone_" + s.id; r.pos = world.procedural && i < world.stoneBuildings.size() ? openSpot(world.buildings[(size_t)world.stoneBuildings[i]].x, world.buildings[(size_t)world.stoneBuildings[i]].z, 24) : openSpot(s.x, s.z, 8);  // Atlas: room for the gate pen + stone
++    r.stone = (int)i; r.reward = "stone";
+     gates.push_back(r);
+   }
+ }
+@@ -380,12 +381,14 @@
+ }
+ void Game::updateGates(float dt) {
+   for (auto& g : gates) {
++    if (g.stone >= 0 && !stoneRevealed(g.stone)) continue;  // Atlas: still hidden inside its building
+     if (g.open) { g.openT = std::min(1.f, g.openT + dt); continue; }
+     if (P().zooKey && dist2D(kaiju.pos.x, kaiju.pos.z, g.pos.x, g.pos.z) < 7 + kaiju.radius()) openGate(g);
+   }
+ }
+ void Game::renderGates(RenderList& rl) {
+   for (auto& g : gates) {
++    if (g.stone >= 0 && !stoneRevealed(g.stone)) continue;  // Atlas
+     Mat4 root = Mat4::translation(g.pos.x, 0, g.pos.z);
+     // fenced pen behind the gate
+     for (int b = 0; b < 16; b++) { float a = b * (2 * PI / 16); if (b == 4) continue; rl.opaque[MESH_BOX].push_back(makeInstance(Mat4::scale(0.4f, 5, 0.4f) * Mat4::translation(std::cos(a) * 7, 2.5f, std::sin(a) * 7 - 8) * root, hexColor(0x8a6a4a))); }
+--- a/src/game/enemies.cpp
++++ b/src/game/enemies.cpp
+@@ -14,7 +14,11 @@
+     float a = frand() * 6.283f, x = K.x + std::cos(a) * dist, z = K.z + std::sin(a) * dist;
+     if (!G->world.blockedForPerson(x, z)) return Vec3(x, 0, z);
+   }
+-  return Vec3(clampf(K.x + dist, -C.worldHalf + 10, C.worldHalf - 10), 0, K.z);
++  for (int t = 0; t < 24; t++) {  // Atlas: fallback ring, never on water
++    float a = t * 0.2618f, x = clampf(K.x + std::cos(a) * dist, -C.worldHalf + 10, C.worldHalf - 10), z = clampf(K.z + std::sin(a) * dist, -C.worldHalf + 10, C.worldHalf - 10);
++    if (!G->world.isWater(x, z)) return Vec3(x, 0, z);
++  }
++  return Vec3(K.x, 0, K.z);
+ }
+ float Enemies::tierHp(int t) { return t >= 2 ? C.tier2Hp : t == 1 ? C.tier1Hp : 1.f; }
+ float Enemies::tierDamage(int t) { return t >= 2 ? C.tier2Damage : t == 1 ? C.tier1Damage : 1.f; }
+@@ -124,7 +128,8 @@
+     const float offs[] = {0, 0.9f, -0.9f, 1.8f, -1.8f};
+     for (float off : offs) { float a = want + off, nx = u.pos.x + std::sin(a) * speed * dt * 4, nz = u.pos.z + std::cos(a) * speed * dt * 4; if (!G->world.blockedForPerson(nx, nz)) { want = a; break; } }
+     u.dir += wrapAngle(want - u.dir) * std::min(1.f, dt * 4);
+-    u.pos.x += std::sin(u.dir) * speed * dt; u.pos.z += std::cos(u.dir) * speed * dt;
++    { float nx = u.pos.x + std::sin(u.dir) * speed * dt, nz = u.pos.z + std::cos(u.dir) * speed * dt;  // Atlas: ground units never drive onto water
++      if (!G->world.isWater(nx, nz)) { u.pos.x = nx; u.pos.z = nz; } else if (!G->world.isWater(nx, u.pos.z)) u.pos.x = nx; else if (!G->world.isWater(u.pos.x, nz)) u.pos.z = nz; }
+   } else u.dir += wrapAngle(want - u.dir) * std::min(1.f, dt * 3);
+   return d;
+ }
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -23,8 +23,8 @@
+   src/core/json.cpp src/core/rng.cpp
+   src/game/config.cpp src/game/tables.cpp src/game/progress.cpp src/game/world.cpp src/game/effects.cpp
+   src/game/people.cpp src/game/enemies.cpp src/game/kaiju.cpp src/game/rigs.cpp src/game/game.cpp src/game/embedded.cpp src/game/saveslots.cpp src/game/boss.cpp src/game/models.cpp
+-  src/game/titan.cpp src/game/titan_bosses.cpp src/game/titan_coop.cpp src/game/eggs.cpp src/game/kaiju_gen.cpp src/game/kaiju_gen_draw.cpp src/game/rex_play.cpp src/game/features.cpp src/game/arc.cpp src/game/ground.cpp src/game/city_gen.cpp
+-  src/ui/ui_draw.cpp src/ui/ui_style.cpp src/ui/hud_bar.cpp src/ui/vault_menus.cpp src/game/vault_powers.cpp src/ui/menus.cpp
++  src/game/titan.cpp src/game/titan_bosses.cpp src/game/titan_coop.cpp src/game/eggs.cpp src/game/kaiju_gen.cpp src/game/kaiju_gen_draw.cpp src/game/rex_play.cpp src/game/features.cpp src/game/arc.cpp src/game/ground.cpp src/game/city_gen.cpp src/game/atlas_stones.cpp
++  src/ui/ui_draw.cpp src/ui/ui_style.cpp src/ui/hud_bar.cpp src/ui/menus.cpp
+   src/audio/audio_synth.cpp src/renderer/meshes.cpp
+   ${TZ_GEN})
+ target_include_directories(tz_core PUBLIC ${CMAKE_SOURCE_DIR}/src ${CMAKE_BINARY_DIR}/generated)
+@@ -67,7 +67,6 @@
+   add_test(NAME tz_tests COMMAND tz_tests)
+   add_executable(tz_vault_tests tests/vault_tests.cpp)  # Vault: menu style / HUD bar
+   target_link_libraries(tz_vault_tests PRIVATE tz_core)
+-  target_compile_definitions(tz_vault_tests PRIVATE TZ_DATA_DIR="${CMAKE_SOURCE_DIR}/data")
+   add_test(NAME tz_vault_tests COMMAND tz_vault_tests)
+   add_executable(tz_vault_ui_shot tests/vault_ui_shot.cpp)  # Vault: software UI screenshot (not a test)
+   target_link_libraries(tz_vault_ui_shot PRIVATE tz_core)
+--- a/tests/tests.cpp
++++ b/tests/tests.cpp
+@@ -837,7 +837,27 @@
+   CHECK(!a->world.isWater(50, -172) && a->world.isWater(0, -172));  // bridge is dry land, river is water
+   auto a2 = adventureAt(0); CHECK(a2->world.buildings.size() == a->world.buildings.size());  // deterministic
+   RenderList rl = renderOnce(*a); CHECK(rl.instanceCount() > 200);
+-  a->startMode(false, false); CHECK(!a->world.procedural && a->world.landmark("parliament")->name == "Parliament Buildings");
++  // gauntlet stones: 6 hiding buildings + 20 decoys, all one colour, nothing else that colour
++  { auto& W = a->world; CHECK(W.stoneBuildings.size() == 6 && W.decoyBuildings.size() == 20);
++    Color sc = hexColor(W.stoneColor); int same = 0;
++    for (auto& b : W.buildings) same += b.color.r == sc.r && b.color.g == sc.g && b.color.b == sc.b;
++    CHECK(same == 26); }
++  // L13 arena: only low, flattenable buildings
++  { int tall = 0, n = 0; for (auto& b : a->world.buildings) if (std::hypot(b.x - 110, b.z + 40) < 62) { n++; tall += b.h > 8; } std::printf("  arena buildings %d\n", n); CHECK(n > 5 && tall == 0); }
++  // cars stay off water: a police car aimed across the river stops at the bank
++  { auto c = adventureAt(0); c->kaiju.pos = Vec3(0, 0, -250); c->enemies.addUnit(U_CAR); c->enemies.units.back().pos = Vec3(0, 0, -150); for (int k = 0; k < 200; k++) run(*c, 0.05f);
++    for (auto& v : c->enemies.units) if (v.type == U_CAR && !v.wreck) CHECK(!c->world.isWater(v.pos.x, v.pos.z)); }
++  G = a.get(); a->startMode(false, false); CHECK(!a->world.procedural && a->world.landmark("parliament")->name == "Parliament Buildings");
++}
++static void testHiddenStones() {
++  SECTION("Atlas: gauntlet stone hidden in a purple building");
++  int si = -1; for (size_t i = 0; i < T.levels.size(); i++) if (T.levels[i].obj == ObjType::Stone) { si = (int)i; break; }
++  CHECK(si >= 0); if (si < 0) return;
++  auto g = adventureAt(si); int st = T.levels[si].stone;
++  CHECK(!g->stoneRevealed(st));
++  Building& b = g->world.buildings[(size_t)g->world.stoneBuildings[(size_t)st]];
++  g->world.generate(b); b.smashed = true; CHECK(g->stoneRevealed(st));
++  bool found = false; for (auto& q : g->gates) if (q.stone == st) found = dist2D(q.pos.x, q.pos.z, b.x, b.z) < 90; CHECK(found);
+ }
+ static void testLevel5Chests() {
+   SECTION("level 5 supply drop: free skill chests");
+@@ -1286,6 +1306,7 @@
+   const LevelDef& L = T.levels[(size_t)g.level.idx];
+   GateRun* gt = nullptr; for (auto& q : g.gates) if (q.stone == L.stone) gt = &q;
+   if (!gt) return false;
++  if (g.world.procedural && L.stone < (int)g.world.stoneBuildings.size()) { Building& b = g.world.buildings[(size_t)g.world.stoneBuildings[(size_t)L.stone]]; g.world.generate(b); std::fill(b.alive.begin(), b.alive.end(), 0); b.aliveCount = 0; b.smashed = true; }  // Atlas: the stone hides in a purple building
+   g.kaiju.pos = gt->pos; run(g, 0.1f); if (!gt->open) return false;
+   g.kaiju.pos = gt->pos + Vec3(0, 0, -8); run(g, 0.1f);
+   return g.level.stoneTaken;
+@@ -1344,6 +1365,7 @@
+   auto s = adventureAt(13); s->menus.clear(); Profile& A = s->AP(); A.zooKey = true; A.gauntlet = A.gauntletSlot = true; A.gauntletOn = false; s->setupGates();
+   GateRun* gt = nullptr; for (auto& q : s->gates) if (q.stone == 0) gt = &q; CHECK(gt != nullptr);
+   if (gt) {
++    { Building& sb = s->world.buildings[(size_t)s->world.stoneBuildings[0]]; s->world.generate(sb); std::fill(sb.alive.begin(), sb.alive.end(), 0); sb.aliveCount = 0; sb.smashed = true; }  // Atlas: reveal the hidden stone
+     s->kaiju.pos = gt->pos; run(*s, 0.1f); CHECK(gt->open); run(*s, 0.8f);  // (the stone sits right behind the gate: let a first knock-back settle)
+     Vec3 sp = gt->pos + Vec3(0, 0, -8); s->kaiju.pos = sp; float hp = s->kaiju.hp; size_t tt = s->toasts.size(); run(*s, 0.05f);
+     bool msg = false; for (size_t i = tt; i < s->toasts.size(); i++) msg |= s->toasts[i].text == "Too much power! You need something to hold it...";
+@@ -1635,28 +1657,26 @@
+   Profile& p = g->P(); p.coins = 5000; p.dmgLvl = p.rangeLvl = p.speedLvl = 1; p.keys = 0; p.spins = 0;
+   g->openStore(); g->updateMenus(InputState(), 0.016f);
+   Menu* m = &g->menus.back(); CHECK(m->kind == 8 && m->cols == 4);
+-  // Vault: 3 basic upgrades + 5 kaiju-specific powers (tiles 3-7), then key / spin / ray / back
+-  auto kp = vpow::kaijuPowers(g->kaiju.def().id, g->kaiju.def().name);
+-  std::vector<std::string> want = {"Mighty Claws", "Big Reach", "Stompy Speed"}; for (auto& k : kp) want.push_back(k.name);
+-  for (const char* w : {"Chest key", "Egg spin", "De-Evolution Ray", "Back"}) want.push_back(w);
+-  CHECK(m->items.size() == 12);
+-  for (size_t i = 0; i < 12 && i < m->items.size(); i++) { CHECK(m->items[i].label == want[i]); CHECK(m->items[i].icon > 0); CHECK(!m->items[i].desc.empty()); }
+-  for (size_t i = 0; i < 11 && i < m->items.size(); i++) CHECK(m->items[i].price > 0 && m->items[i].afford && !m->items[i].owned);
+-  CHECK(m->items[0].price == prog::upgradeCost(1) && m->items[8].price == (int)C.keyCost && m->items[9].price == E.spinCost && m->items[10].price == E.deevoPrice);
+-  CHECK(m->items[10].right == std::to_string(E.deevoPrice) + " coins");
++  const char* want[] = {"Mighty Claws", "Big Reach", "Stompy Speed", "Chest key", "Egg spin", "De-Evolution Ray", "Back"};
++  CHECK(m->items.size() == 7);
++  for (size_t i = 0; i < 7 && i < m->items.size(); i++) { CHECK(m->items[i].label == want[i]); CHECK(m->items[i].icon > 0); CHECK(!m->items[i].desc.empty()); }
++  for (size_t i = 0; i < 6 && i < m->items.size(); i++) CHECK(m->items[i].price > 0 && m->items[i].afford && !m->items[i].owned);
++  CHECK(m->items[0].price == prog::upgradeCost(1) && m->items[3].price == (int)C.keyCost && m->items[4].price == E.spinCost && m->items[5].price == E.deevoPrice);
++  CHECK(m->items[5].right == std::to_string(E.deevoPrice) + " coins");
+   RenderList rl = renderOnce(*g); CHECK(rl.ui.size() > 600);
+-  CHECK(g->menuLayout.cols == 4 && g->menuLayout.count == 3 && g->menuLayout.tw > 0);
++  CHECK(g->menuLayout.cols == 4 && g->menuLayout.count == 2 && g->menuLayout.tw > 0);
+   // pad: A buys the focused tile with the same coin cost as before
+   int c0 = p.coins; tap(*g, A_CONFIRM); CHECK(p.dmgLvl == 2 && p.coins == c0 - prog::upgradeCost(1));
+-  tap(*g, A_DOWN); tap(*g, A_DOWN); CHECK(g->menus.back().index == 8);
++  tap(*g, A_RIGHT); tap(*g, A_RIGHT); tap(*g, A_RIGHT); CHECK(g->menus.back().index == 3);
+   c0 = p.coins; tap(*g, A_CONFIRM); CHECK(p.keys == 1 && p.coins == c0 - (int)C.keyCost);
+-  tap(*g, A_RIGHT); CHECK(g->menus.back().index == 9);
++  tap(*g, A_DOWN); CHECK(g->menus.back().index == 6);  // clamps to Back on the short row
++  tap(*g, A_LEFT); tap(*g, A_LEFT); CHECK(g->menus.back().index == 4);
+   c0 = p.coins; tap(*g, A_CONFIRM); CHECK(p.spins == 1 && p.coins == c0 - E.spinCost);
+-  tap(*g, A_DOWN); CHECK(g->menus.back().index == 1); tap(*g, A_LEFT); tap(*g, A_LEFT); CHECK(g->menus.back().index == 11);
++  tap(*g, A_UP); CHECK(g->menus.back().index == 0); tap(*g, A_LEFT); CHECK(g->menus.back().index == 6);
+   // can't afford: nothing is deducted and the tile says so
+-  p.coins = 5; g->updateMenus(InputState(), 0.016f); m = &g->menus.back(); CHECK(!m->items[1].afford && !m->items[8].afford);
++  p.coins = 5; g->updateMenus(InputState(), 0.016f); m = &g->menus.back(); CHECK(!m->items[1].afford && !m->items[3].afford);
+   m->index = 1; int r0 = p.rangeLvl; tap(*g, A_CONFIRM); CHECK(p.rangeLvl == r0 && p.coins == 5);
+-  m = &g->menus.back(); m->index = 8; tap(*g, A_CONFIRM); CHECK(p.keys == 1 && p.coins == 5);
++  m = &g->menus.back(); m->index = 3; tap(*g, A_CONFIRM); CHECK(p.keys == 1 && p.coins == 5);
+   // maxed upgrade shows as owned
+   p.speedLvl = prog::maxLevel(); g->updateMenus(InputState(), 0.016f); m = &g->menus.back(); CHECK(m->items[2].owned && m->items[2].right == "MAX");
+   // mouse: hovering a tile focuses it, clicking buys it
+@@ -1666,7 +1686,7 @@
+   // B closes the store
+   tap(*g, A_CANCEL); CHECK(g->menus.empty() || g->menus.back().kind != 8);
+   // Back tile closes too
+-  g->menus.clear(); g->openStore(); g->updateMenus(InputState(), 0.016f); g->menus.back().index = 11; tap(*g, A_CONFIRM); CHECK(g->menus.empty());
++  g->menus.clear(); g->openStore(); g->updateMenus(InputState(), 0.016f); g->menus.back().index = 6; tap(*g, A_CONFIRM); CHECK(g->menus.empty());
+ }
+ 
+ // Textured ground: surface -> texture mapping, world-space UV tiling, the flat-colour fallback, shipped files.
+@@ -1960,7 +1980,7 @@
+   testSandboxSim(); testSchoolAndRebuild(); testAllMovesAndMonsters(); testAdventure(); testMenusAndHud();
+   testTutorialChallenge(); testRoarMilestoneAndChests(); testRapidFireAndBlaster(); testRoarCharge(); testEat(); testStompStun();
+   testSkillSlots(); testSaveSlots(); testAdventureChoice(); testCrazy(); testPoliceAudioAndMovement(); testIntro();
+-  testEatFuel(); testRoster(); testLevel5Chests(); testProceduralCity(); testChampionPick(); testDifficultyCurve();
++  testEatFuel(); testRoster(); testLevel5Chests(); testProceduralCity(); testHiddenStones(); testChampionPick(); testDifficultyCurve();
+   testModelHooks(); testSandboxPoliceToggle(); testControlsMapping(); testStoreGrid(); testGroundTextures(); testShaderKeywords();
+   testEggTables(); testSpinner(); testGrowthAndXp(); testFinishRender(); testEnemyLadder(); testDeevo(); testZooAndKey(); testGauntletArc(); testBulkStages(); testCreditsAndEnding();
+   std::printf("\n%d passed, %d failed\n", gPass, gFail);

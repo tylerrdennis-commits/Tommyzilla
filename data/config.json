@@ -1,0 +1,86 @@
+// Tommyzilla City Smash - tuning. Every key is optional; missing keys use the built-in defaults.
+// Values mirror the browser prototype's CONFIG block. Edit and restart the game.
+{
+  "worldHalf": 400, "chunkSize": 100, "activeRadius": 2, "fogNear": 110, "fogFar": 260,
+  "brick": 2, "rebuildDelay": 300, "rebuildBrickInterval": 0.03,
+  "blockKaijuHealth": 0.45, "decorFallHealth": 0.75, "roofFallHealth": 0.6, "smashedHealth": 0.6, "landmarkSmashHealth": 0.7,
+  "collapseChance": 0.78, "collapseBonusCoins": 10,
+  "maxDebris": 2500, "gravity": 32, "debrisLife": 7, "debrisBounce": 0.3, "debrisFriction": 0.8,
+  "kaijuSpeed": 22, "kaijuSprint": 1.8, "kaijuTurn": 9, "waterSlow": 0.6, "kaijuRadius": 4.5, "kaijuMaxHp": 100, "kaijuRegen": 2,
+  "camDist": 34, "camHeight": 12, "camStickSpeed": 2.6, "camMouseSpeed": 0.004, "camAutoFollowDelay": 2.0, "camAutoFollowRate": 1.2,
+  // kaijuSpeed = base walk speed (was 16, now 22 = +37.5%, x each monster's speed); kaijuSprint = run multiplier while Shift / L3 is held (was 1.7)
+  "deadzone": 0.2,
+  "coinsPerBrick": 1, "coinsPerBrickOther": 0,
+  "damagePerLevel": 0.35, "rangePerLevel": 0.15, "speedPerLevel": 0.2, "upgradeSteps": 5,
+  "upgradeCost1": 60, "upgradeCost2": 140, "upgradeCost3": 260, "upgradeCost4": 420, "upgradeCost5": 650,
+  "startSlots": 2, "slot2Smashes": 8,
+  "schoolUnlockCount": 4,
+  "maxPeople": 260, "peoplePerChunk": 12, "fleeRadius": 34, "walkSpeed": 2.2, "runSpeed": 9, "peopleRespawnInterval": 1.5,
+  "maxSplats": 140, "splatFadeRadius": 80, "splatMaxAge": 360,
+  "treePickRange": 9, "throwSpeed": 46, "rockRespawn": 300,
+  "heatPerBuilding": 0.45, "heatPerPerson": 0.12, "heatPerBrick": 0.002, "heatDecay": 0.08, "heatDecayDelay": 6,
+  "carsPerStar": 2, "maxCars": 8, "carSpeed": 26, "carDps": 1.2, "carRange": 22,
+  "heliStars": 3, "heliDps": 2.0, "heliHp": 3, "tankStars": 4, "maxTanks": 3, "tankSpeed": 9, "tankHp": 3, "tankShotDamage": 5, "tankReload": 3.5,
+  "jetSpeed": 90, "jetHp": 2, "jetBombDamage": 6, "jeepSpeed": 30, "jeepDps": 1.5,
+  "nukeStars": 5, "nukeCountdown": 20, "nukeCancelCost": 150, "nukeCancelHeat": 2.5, "spawnDist": 110,
+  "masterVolume": 0.6, "screamMinGap": 0.7, "screamRadius": 30,
+  "eggGlowHits": 6, "revealTime": 4.0,
+  // tutorial rainbow challenge: civilians to turn into rainbows (smash, stomp-step, blaster, eat); the tutorial keeps at
+  // least tutorialMinCivilians people around (respawning every tutorialRespawnInterval s, >= tutorialSpawnMinDist m away)
+  // tutorialBuildings: buildings to smash; reward on completion: tutorialRewardKeys chest keys + tutorialRewardCoins coins
+  "tutorialRainbows": 10, "tutorialBuildings": 5, "tutorialRewardKeys": 1, "tutorialRewardCoins": 50,
+  "tutorialMinCivilians": 32, "tutorialRespawnInterval": 0.4, "tutorialSpawnMinDist": 25,
+  // Charged Roar unlock: smash roarUnlockLandmarks landmarks OR survive roarUnlockHits hits (one hit per hitCountGap s max)
+  "roarUnlockLandmarks": 1, "roarUnlockHits": 15, "hitCountGap": 0.75,
+  // quick weapons (Glow Breath, Rainbow Blaster): no cooldown, at most this many of each on screen
+  "rapidProjectileCap": 10,
+  // Rainbow Blaster crosshair: how close (m) the centre-screen ray must pass to a person to lock on
+  "blasterAimRadius": 1.8,
+  // grab-and-eat (E / LB+Y): reach in metres (x monster scale), lift-to-mouth tween seconds
+  "eatRange": 14, "eatTweenTime": 0.3,
+  // stomp stun: radius (m, x monster scale) of the stun + the hold-to-aim ground ring, and stun seconds
+  "stompStunRadius": 24, "stompStunTime": 3.0,
+  // locked skill chests: keyCost coins per key (store), coins for each civilian rainbow, open/hint reach, spawn distance
+  "keyCost": 100, "coinsPerRainbow": 2, "chestRange": 12, "chestDist": 24,
+  // THE BULK (level 15 boss): HP, growth per landed hit (x1.065, was 1.06; also never less than the damage fraction) up to bossMaxScale x his starting bossBaseScale,
+  // hit radius at scale 1, walk speed, damage taken per brick of the move that hits him, attack damage/radius/timing
+  // normal mode is an easy win (was HP 260, per-brick 0.6, pound 5, rush 6, throw 4): about 17 claw hits, by then he is near max size
+  "bossHp": 150, "bossGrowPerHit": 0.065, "bossMaxScale": 2.5, "bossBaseScale": 1.6, "bossRadius": 5.5, "bossSpeed": 7,
+  "bossDamagePerBrick": 0.5, "bossHitGap": 0.15, "bossPoundDamage": 3, "bossPoundRadius": 16, "bossRushDamage": 3.5, "bossRushSpeed": 28,
+  "bossThrowDamage": 2.5, "bossAttackGap": 3.2, "bossIntroTime": 3.5,
+  // startup cinematic ("Tommy D Productions presents", city reveal, TOMMYZILLA title): 1 = on, 0 = off (-nointro also skips it)
+  "introEnabled": 1,
+  // secret item (see README developer notes): metres walked per pulse, buildings flattened per pulse, share of the map smashed before it drops, pickup range
+  "gloveStep": 8,
+  "gloveTargets": 10,
+  "gloveDropFraction": 0.5,
+  "glovePickupRange": 8,
+  // police / cop audio (sirens, police heli, police car + tank fire and its impacts): volume multiplier (0.4 = about -8 dB)
+  // and the most police one-shot sounds allowed to overlap at once. Other sounds are unchanged.
+  "policeVolume": 0.4, "policeMaxVoices": 3,
+  // CRAZY difficulty (unlocked by beating THE BULK): same 15 levels; enemy HP / damage and boss HP multipliers;
+  // crazySuperCost multiplies the EAT COST of super attacks (not cooldowns or charge time)
+  "crazyEnemyHp": 2, "crazyEnemyDamage": 2, "crazyBossHp": 2, "crazySuperCost": 1.75,
+  // eat-to-fuel supers: civilians eaten with E are the fuel for super attacks (no super cooldowns).
+  // Full-charge cost goes from eatCostStart (adventure level 1, and Sandbox) to eatCostEnd (level 15);
+  // a Charged Roar released early costs eatCostMinCharge x that, a full charge eatCostFullCharge x (so full = 2x a quick one).
+  "eatCostStart": 2, "eatCostEnd": 14, "eatCostMinCharge": 0.5, "eatCostFullCharge": 1.0,
+  // keep enough civilians around on every adventure level to feed the supers
+  "levelMinCivilians": 26, "levelRespawnInterval": 0.6,
+  // adventure infantry: cops on foot (level 1+) and soldiers (level 2+) with pea-shooters
+  "copHp": 1, "copSpeed": 9, "copRange": 26, "copReload": 2.0, "copShotDamage": 0.35,
+  "soldierHp": 1, "soldierSpeed": 10, "soldierRange": 30, "soldierReload": 1.8, "soldierShotDamage": 0.45,
+  // enemy tiers (levels 6-10 = tier 1, red paint; 11-15 = tier 2, gold paint): HP, damage, speed and max-count multipliers
+  "tier1Hp": 1.6, "tier1Damage": 1.15, "tier1Speed": 1.1, "tier1Count": 1.0,
+  "tier2Hp": 2.2, "tier2Damage": 1.3, "tier2Speed": 1.2, "tier2Count": 1.25,
+  // end-of-level bosses on levels 11-14 (Giant Super-Tank / Mega Mech): hits to beat, cannon damage, reload, speed
+  "mbossHp": 24, "mbossShotDamage": 1.5, "mbossReload": 3.0, "mbossSpeed": 6,
+  // normal Adventure: at the start of this level you pick your favourite kaiju; it stays locked in for the rest of the campaign
+  "kaijuPickLevel": 6,
+  // kid-friendly campaign: every enemy hit in Adventure (and THE BULK) is scaled by this; Crazy doubles it again (crazyEnemyDamage)
+  "adventureEnemyDamage": 0.5,
+  // loaded 3D models (data/models.json + assets/): enabled false = the original primitive rigs everywhere (also: -nomodels).
+  // peopleDist: civilians farther than this (m) use the cheap stick figures; soloMax: animated non-crowd instances with
+  // their own animation (the rest share crowd poses); lodNear/lodFar (m): animation updates every frame / every 2nd / every 4th
+  "models": {"enabled": true, "peopleDist": 110, "soloMax": 32, "lodNear": 50, "lodFar": 130}
+}

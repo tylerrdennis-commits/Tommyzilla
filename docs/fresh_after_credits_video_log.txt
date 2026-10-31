@@ -1,0 +1,4 @@
+18:43:10.093 stage 0 credits | path - | video length 12.000 s | file Z:\tmp\tz_fresh_20261020_174253\game\tommyzilla\dist\data\video\after_credits.mp4
+18:43:18.099 stage 2 after-credits | path media-foundation | video length 10.625 s | file Z:\tmp\tz_fresh_20261020_174253\game\tommyzilla\dist\data\video\after_credits.mp4
+18:43:28.791 stage 3 video-done(wait-button) | path media-foundation | video length 10.625 s | file Z:\tmp\tz_fresh_20261020_174253\game\tommyzilla\dist\data\video\after_credits.mp4
+18:43:31.072 left the ending -> title

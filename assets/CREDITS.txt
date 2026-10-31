@@ -1,0 +1,11 @@
+Tommyzilla City Smash - 3D model credits (all CC0 1.0 / public domain; credit not required but given gladly)
+
+Quaternius (quaternius.com, downloaded via poly.pizza) - assets/polypizza/*.glb except Helicopter_kazuma.glb:
+  Ultimate Monsters (Dino, Yeti, Dragon, Dragon Evolved, Blue Demon, Demon, Birb, Pigeon, Fish, Green Blob,
+  Green Spiky Blob, Pink Slime, Mushnub Evolved), Mech Bee, Mech Fox, SWAT, Character Soldier, Tank,
+  Street Light, Exploding Barrel, Barrier, Container. Per-model URLs: assets/polypizza/sources.json
+kazuma (poly.pizza) - Helicopter (assets/polypizza/Helicopter_kazuma.glb)
+Kenney (kenney.nl) - Car Kit, City Kit Commercial 2.1, City Kit Suburban 2.0, City Kit Industrial 2.0,
+  City Kit Roads, Mini Characters. Licence files: assets/kenney/*/License.txt
+
+Only the files mapped in data/models.json are shipped (tools/copy_models.cmake).
