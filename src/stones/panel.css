@@ -1,0 +1,147 @@
+/* Stones sit in the roster panel, above Play, so the lineup on the right stays visible.
+   Play stays on screen when the stone list is taller than the window. */
+#menu .panel {
+  pointer-events: auto;
+  max-height: calc(100vh - 48px);
+  overflow: hidden;
+  padding: 14px 22px 10px;
+}
+
+#menu-scroll {
+  width: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+#menu .panel > #play {
+  flex: 0 0 auto;
+  margin-top: 8px;
+}
+
+#infinity-stones {
+  width: 100%;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 0;
+  padding-top: 4px;
+  border-top: 1px solid rgba(62, 224, 197, 0.35);
+}
+
+#infinity-stones h2 {
+  margin: 0;
+  font-family: Impact, "Arial Black", sans-serif;
+  font-size: 22px;
+  letter-spacing: 0.04em;
+  color: white;
+  text-align: center;
+}
+
+#infinity-stones p {
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+#stone-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+#infinity-stones button.stone-choice {
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  padding: 6px 8px;
+  background: #243038;
+  color: #d5dde6;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.3;
+  box-shadow: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  text-align: left;
+}
+
+#infinity-stones button.stone-choice[aria-pressed="true"] {
+  outline: 3px solid #3ee0c5;
+  outline-offset: 0;
+  background: #1c3338;
+}
+
+.stone-gem {
+  width: 14px;
+  height: 14px;
+  margin-top: 2px;
+  border-radius: 50%;
+  border: 1px solid white;
+  flex: 0 0 auto;
+}
+
+.stone-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.stone-name-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  align-items: baseline;
+}
+
+.stone-name {
+  font-weight: 700;
+  color: white;
+}
+
+.stone-state {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8ea3b5;
+  white-space: nowrap;
+}
+
+.stone-choice[aria-pressed="true"] .stone-state {
+  color: #3ee0c5;
+}
+
+.stone-effect {
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #d5dde6;
+}
+
+#stone-readout,
+#stone-sense {
+  margin-top: 6px;
+  max-width: 36rem;
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.stone-readout-line + .stone-readout-line {
+  margin-top: 2px;
+}
+
+@media (max-width: 720px) {
+  #menu-scroll {
+    gap: 6px;
+  }
+  #stone-choices {
+    grid-template-columns: 1fr;
+  }
+}
