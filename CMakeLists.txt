@@ -23,7 +23,7 @@ add_library(tz_core STATIC
   src/core/json.cpp src/core/rng.cpp
   src/game/config.cpp src/game/tables.cpp src/game/progress.cpp src/game/world.cpp src/game/effects.cpp
   src/game/people.cpp src/game/enemies.cpp src/game/kaiju.cpp src/game/rigs.cpp src/game/game.cpp src/game/embedded.cpp src/game/saveslots.cpp src/game/boss.cpp src/game/models.cpp
-  src/game/titan.cpp src/game/titan_bosses.cpp src/game/titan_coop.cpp src/game/eggs.cpp src/game/kaiju_gen.cpp src/game/kaiju_gen_draw.cpp src/game/rex_play.cpp src/game/features.cpp src/game/arc.cpp src/game/ground.cpp src/game/city_gen.cpp src/game/atlas_stones.cpp
+  src/game/titan.cpp src/game/titan_bosses.cpp src/game/titan_coop.cpp src/game/eggs.cpp src/game/kaiju_gen.cpp src/game/kaiju_gen_draw.cpp src/game/rex_play.cpp src/game/features.cpp src/game/arc.cpp src/game/stones.cpp src/game/ground.cpp src/game/city_gen.cpp src/game/atlas_stones.cpp
   src/ui/ui_draw.cpp src/ui/ui_style.cpp src/ui/hud_bar.cpp src/ui/vault_menus.cpp src/game/vault_powers.cpp src/ui/menus.cpp
   src/audio/audio_synth.cpp src/renderer/meshes.cpp
   ${TZ_GEN})

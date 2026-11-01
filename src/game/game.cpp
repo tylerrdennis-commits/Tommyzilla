@@ -568,8 +568,10 @@ int Game::glovePulse() {
     c.push_back({dist2D(b.x, b.z, kaiju.pos.x, kaiju.pos.z), &b});
   }
   int targets = E.pulseTargets[(size_t)std::max(0, std::min(6, stoneCount()))];  // power grows with the stones: 0 stones = cosmetic
-  int n = std::min((int)c.size(), targets);
-  if (n <= 0) return 0;
+  StonePower pulse; bool pulseOn = stonePowerOn(0, pulse);
+  if (pulseOn) targets += std::max(0, pulse.extra);
+  int n = std::min((int)c.size(), std::max(0, targets));
+  if (n <= 0 && !(pulseOn && (pulse.people || pulse.zap))) return 0;
   std::partial_sort(c.begin(), c.begin() + n, c.end(), [](const std::pair<float, Building*>& a, const std::pair<float, Building*>& b) { return a.first < b.first; });
   float far = 10;
   for (int i = 0; i < n; i++) {
@@ -579,7 +581,13 @@ int Game::glovePulse() {
     if (b.smashed && !b.collapsed) world.collapse(b);
   }
   static const uint32_t bands[6] = {0xff3b3b, 0xff9a2a, 0xffe03a, 0x4bd66b, 0x3a8dff, 0xb06bff};
-  for (int k = 0; k < 6; k++) fx->ring(kaiju.pos.x, kaiju.pos.z, far * (0.55f + 0.09f * k), 0.7f + 0.06f * k, hexColor(bands[k]));
+  for (int k = 0; k < 6; k++) {
+    Color col = hexColor(bands[k]);
+    if (pulseOn) { const StoneDef* st = nullptr; for (auto& s : E.stones) if (s.id == P().stoneBind[0].substr(0, P().stoneBind[0].find(':'))) st = &s; if (st) col = mixColor(st->color, col, 0.35f); }
+    fx->ring(kaiju.pos.x, kaiju.pos.z, far * (0.55f + 0.09f * k), 0.7f + 0.06f * k, col);
+  }
+  if (pulseOn && pulse.people) people.pop(kaiju.pos.x, kaiju.pos.z, 16);
+  if (pulseOn && pulse.zap) enemies.hitArea(kaiju.pos.x, kaiju.pos.z, 18, -1, false);
   fx->rainbowBurst(kaiju.pos + Vec3(0, 6, 0), 2);
   kaiju.cam.shake = std::min(1.2f, kaiju.cam.shake + 0.5f); vibrate(0.7f, 0.25f); play(SND_boom, 0.6f, 1.2f);
   glovePulseT = 0.5f; glovePulses++;
@@ -858,13 +866,16 @@ static void drawEgg(RenderList& rl, const Egg& e, float time) {
 
 void Game::render3D(RenderList& rl, int w, int h) {
   rl.clear(); rl.width = w; rl.height = h; rl.time = time; rl.vpX = 0; rl.vpW = 0;
-  rl.sky = hexColor(0x2a1424); rl.fog = hexColor(0x3a2236); rl.fogNear = C.fogNear; rl.fogFar = C.fogFar;
+  rl.skyZenith = hexColor(0x241446); rl.skyHorizon = hexColor(0xf0b48a);
+  rl.sky = rl.skyHorizon; rl.fog = rl.skyHorizon; rl.exposure = 1.18f; rl.contrast = 1.08f;
+  rl.fogNear = C.fogNear; rl.fogFar = C.fogFar;
   // lights are reset every frame (the platform reuses one RenderList, so the L20 darkening must not compound)
-  { static const RenderList kDefaults; rl.sunColor = kDefaults.sunColor; rl.sunIntensity = kDefaults.sunIntensity; rl.hemiIntensity = kDefaults.hemiIntensity; }
+  { static const RenderList kDefaults; rl.sunColor = kDefaults.sunColor; rl.sunIntensity = kDefaults.sunIntensity; rl.hemiSky = kDefaults.hemiSky; rl.hemiGround = kDefaults.hemiGround; rl.hemiIntensity = kDefaults.hemiIntensity; }
   if (skyDark > 0.001f) {  // L20: the sky darkens as THE BULK arrives (and clears after the snap)
     float k = clampf(skyDark, 0, 1);
     // dark and stormy but never so dark an 8-year-old loses sight of THE BULK (fog pushed out, not in, as he grows)
-    rl.sky = mixColor(rl.sky, hexColor(0x0e0418), k); rl.fog = mixColor(rl.fog, hexColor(0x2a1240), k);
+    rl.skyZenith = mixColor(rl.skyZenith, hexColor(0x07010e), k); rl.skyHorizon = mixColor(rl.skyHorizon, hexColor(0x3a1860), k);
+    rl.sky = rl.skyHorizon; rl.fog = rl.skyHorizon; rl.exposure = lerpf(rl.exposure, 0.82f, k);
     float far = boss.active ? 1.0f + 0.35f * clampf(boss.growth() - 1, 0, 1.5f) : 0.9f;
     rl.fogNear = lerpf(rl.fogNear, rl.fogNear * far, k); rl.fogFar = lerpf(rl.fogFar, rl.fogFar * far, k);
     rl.sunIntensity *= 1 - 0.4f * k; rl.hemiIntensity *= 1 - 0.25f * k; rl.sunColor = mixColor(rl.sunColor, hexColor(0xb070ff), 0.6f * k);
@@ -901,6 +912,7 @@ void Game::render3D(RenderList& rl, int w, int h) {
     if (kaiju.cam.shake > 0) eye += Vec3(frand() - 0.5f, frand() - 0.5f, frand() - 0.5f) * (kaiju.cam.shake * 1.2f);
   }
   rl.eye = eye;
+  rl.opaque[MESH_SPHERE].push_back(makeInstance(Mat4::scale(2400, 2400, 2400) * Mat4::translation(eye.x, eye.y, eye.z), Color{1, 1, 1, 1}, 2));  // sky shell just inside the far plane; the shader paints the dusk gradient
   {  // model animation step: wall-clock while anything is moving, frozen while the pause menu is up
     bool paused = mode == Mode::Play && !menus.empty() && !charSel;
     rl.animDt = lastAnimT < 0 || paused ? 0.f : clampf(realTime - lastAnimT, 0, 0.1f); lastAnimT = realTime;

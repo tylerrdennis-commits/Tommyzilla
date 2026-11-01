@@ -46,13 +46,17 @@ const char* kShader = R"HLSL(
 cbuffer Frame : register(b0) {
   row_major float4x4 viewProj;
   float4 eye;        // xyz
-  float4 fogColor;   // rgb
+  float4 fogColor;   // rgb (legacy; distance fog uses the sky gradient)
   float4 fogParams;  // x = near, y = far
   float4 lightDir;   // xyz = direction towards the sun
   float4 sunColor;   // rgb * intensity
   float4 hemiSky;    // rgb * intensity
   float4 hemiGround; // rgb * intensity
   float4 screen;     // x = width, y = height
+  float4 skyZenith;  // rgb
+  float4 skyHorizon; // rgb
+  float4 fillDir;    // xyz = fill light, w = intensity
+  float4 grade;      // x = exposure, y = contrast, z = contact shadow strength
 };
 struct VSIn {
   float3 pos : POSITION; float3 nrm : NORMAL;
@@ -96,20 +100,74 @@ float3 finishShade(float id, float t, float3 base, float3 lit, float3 n, float3 
     return lerp(lit, rgb * (0.55 + 0.55 * ndl) + 0.15, 0.7) + fres * 0.5 + spec * 0.8;
   }
 }
+float3 toneMap(float3 c) {
+  c *= max(grade.x, 0.01);
+  float a = 2.51, b = 0.03, cc = 2.43, d = 0.59, e = 0.14;  // Narkowicz ACES fit
+  c = saturate((c * (a * c + b)) / (c * (cc * c + d) + e));
+  return saturate((c - 0.5) * grade.y + 0.5);
+}
+float3 skyGrad(float3 wpos) {
+  float3 vd = normalize(wpos - eye.xyz);
+  float upv = saturate(vd.y);
+  float3 col = lerp(skyHorizon.rgb, skyZenith.rgb, pow(upv, 0.55));
+  float sun = pow(saturate(dot(vd, normalize(lightDir.xyz))), 180.0);
+  col += sunColor.rgb * sun * 2.4;
+  return col;
+}
+float3 fogApply(float3 c, float3 wpos) {
+  float3 dir = wpos - eye.xyz;
+  float dist = length(dir);
+  float3 vd = dir / max(dist, 1e-3);
+  float upv = saturate(vd.y * 1.15 + 0.02);
+  float3 skyCol = lerp(skyHorizon.rgb, skyZenith.rgb, upv);
+  float f = saturate((dist - fogParams.x) / max(1e-3, fogParams.y - fogParams.x));
+  float haze = saturate((10.0 - wpos.y) / 28.0) * 0.28;  // street-level haze so the city has a horizon
+  f = saturate(f + haze * (1.0 - f));
+  return lerp(c, skyCol, f);
+}
+float contactAo(float3 n, float3 wpos) {
+  float h = smoothstep(0.15, 4.5, wpos.y);
+  float grazing = 1.0 - saturate(n.y);  // straight-up faces (ground, roofs) stay clean
+  float strength = grade.z > 0.05 ? grade.z : 0.72;
+  return lerp(1.0, lerp(strength, 1.0, h), grazing);
+}
+// rough/metal are 0..1. Saturated paint gets a tighter highlight; grey concrete stays matte.
+float3 shadeLit(float3 base, float3 n, float3 wpos, float glow, float rough, float metal) {
+  float3 v = normalize(eye.xyz - wpos);
+  float3 L = normalize(lightDir.xyz);
+  float ndotl = dot(n, L);
+  float wrap = saturate((ndotl + 0.55) / 1.55);
+  float3 amb = lerp(hemiGround.rgb, hemiSky.rgb, n.y * 0.5 + 0.5);
+  float fill = saturate(dot(n, normalize(fillDir.xyz))) * fillDir.w;
+  float mx = max(base.r, max(base.g, base.b));
+  float mn = min(base.r, min(base.g, base.b));
+  float sat = mx > 1e-4 ? (mx - mn) / mx : 0;
+  float roughC = saturate(rough * lerp(0.62, 1.0, 1.0 - sat));
+  float metalC = saturate(metal);
+  float3 diff = base * (1.0 - metalC * 0.85) * (amb + sunColor.rgb * wrap + hemiSky.rgb * fill);
+  float3 H = normalize(L + v);
+  float specPow = lerp(10.0, 72.0, 1.0 - roughC);
+  float spec = pow(saturate(dot(n, H)), specPow) * saturate(ndotl);
+  float3 f0 = lerp(float3(0.04, 0.04, 0.04), base, metalC);
+  diff += f0 * spec * sunColor.rgb * lerp(0.35, 1.35, 1.0 - roughC);
+  diff *= contactAo(n, wpos);
+  diff += base * glow;
+  return diff;
+}
 float4 PSMain(PSIn i) : SV_Target {
+  if (i.prm.x > 1.5) return float4(toneMap(skyGrad(i.wpos)), 1);  // sky shell
   float3 base = i.col.rgb, c;
-  if (i.prm.x > 0.5) c = base;
+  float l2 = dot(i.nrm, i.nrm);
+  float3 n = l2 > 1e-12 ? i.nrm * rsqrt(l2) : float3(0, 1, 0);
+  if (i.prm.x > 0.5) c = base + base * i.prm.y;
   else {
-    float l2 = dot(i.nrm, i.nrm);
-    float3 n = l2 > 1e-12 ? i.nrm * rsqrt(l2) : float3(0, 1, 0);
-    float3 amb = lerp(hemiGround.rgb, hemiSky.rgb, n.y * 0.5 + 0.5);
-    float ndl = saturate(dot(n, lightDir.xyz));
-    c = base * (amb + sunColor.rgb * ndl);
-    if (i.prm.z > 0.5) c = finishShade(i.prm.z, i.prm.w, base, c, n, i.wpos);  // primitive-rig fallback for kaiju finishes
+    float mx = max(base.r, max(base.g, base.b)), mn = min(base.r, min(base.g, base.b));
+    float sat = mx > 1e-4 ? (mx - mn) / mx : 0;
+    float rough = lerp(0.45, 0.92, 1.0 - sat);  // painted kaiju parts catch a highlight; brick and concrete stay rough
+    c = shadeLit(base, n, i.wpos, i.prm.y, rough, sat > 0.85 && mx > 0.75 ? 0.35 : 0.0);
+    if (i.prm.z > 0.5) c = finishShade(i.prm.z, i.prm.w, base, c, n, i.wpos) + base * i.prm.y;
   }
-  c += base * i.prm.y;
-  float f = saturate((distance(i.wpos, eye.xyz) - fogParams.x) / max(1e-3, fogParams.y - fogParams.x));
-  return float4(lerp(saturate(c), fogColor.rgb, f), i.col.a);
+  return float4(toneMap(fogApply(c, i.wpos)), i.col.a);
 }
 // textured ground: world-space UVs (xz / tile metres), slice = surface, tinted by the old flat colour and divided by the
 // texture's mean brightness (palette unchanged), same hemisphere + sun + fog as the primitives (normal = up).
@@ -137,9 +195,12 @@ float4 GroundPS(GOut i) : SV_Target {
     float dash = smoothstep(0, dw * 2, d) * (1 - smoothstep(0.5, 0.5 + dw * 2, d));
     base = lerp(base, float3(0.62, 0.57, 0.40) * k, laneMask * dash * 0.9);
   }
-  float3 c = base * (hemiSky.rgb + sunColor.rgb * saturate(lightDir.y));
-  float f = saturate((distance(i.wpos, eye.xyz) - fogParams.x) / max(1e-3, fogParams.y - fogParams.x));
-  return float4(lerp(saturate(c), fogColor.rgb, f), 1);
+  float rough = s == 3 ? 0.22 : 0.94;
+  float tm = gnd0.x;
+  float3 n = float3(0, 1, 0);
+  if (s == 3) n = normalize(float3(sin(uv.x * 12.0 + tm) * 0.08, 1, cos(uv.y * 10.0 - tm) * 0.08));
+  float3 c = shadeLit(base, n, i.wpos, 0, rough, s == 3 ? 0.15 : 0.0);
+  return float4(toneMap(fogApply(c, i.wpos)), 1);
 }
 struct UIIn { float2 pos : POSITION; float4 col : COLOR0; };
 struct UIOut { float4 pos : SV_Position; float4 col : COLOR0; };
@@ -161,12 +222,46 @@ float4 VidPS(VidOut i) : SV_Target {
   if (any(uv < 0) || any(uv > 1)) return float4(0, 0, 0, 1);
   return float4(vidTex.SampleLevel(vidSmp, uv, 0).rgb, 1);
 }
+// Mild bloom. Scene colour is already tonemapped; this only lifts the bright shoulder.
+Texture2D sceneTex : register(t2);
+Texture2D bloomTex : register(t3);
+SamplerState postSmp : register(s2);
+cbuffer PostCB : register(b3) { float4 post0; float4 post1; };  // xy = source texel, z = threshold, w = blur axis x; post1.x = axis y, y = bloom gain
+struct PostOut { float4 pos : SV_Position; float2 uv : TEXCOORD0; };
+PostOut PostVSUv(uint id : SV_VertexID) {
+  float2 p = float2((id << 1) & 2, id & 2);
+  PostOut o; o.pos = float4(p * 2 - 1, 0, 1); o.uv = float2(p.x, 1 - p.y);
+  return o;
+}
+float3 postTap(float2 uv) { return sceneTex.Sample(postSmp, uv).rgb; }
+float4 BrightPS(PostOut i) : SV_Target {
+  float2 px = post0.xy;
+  float3 c = (postTap(i.uv) + postTap(i.uv + float2(px.x, 0)) + postTap(i.uv + float2(0, px.y)) + postTap(i.uv + px)) * 0.25;
+  float lum = dot(c, float3(0.2126, 0.7152, 0.0722));
+  float soft = saturate((lum - post0.z) / 0.18);
+  return float4(c * soft * soft, 1);
+}
+float4 BlurPS(PostOut i) : SV_Target {
+  float2 dir = float2(post0.w, post1.x) * post0.xy;
+  float3 c = postTap(i.uv) * 0.227;
+  c += postTap(i.uv + dir * 1.4) * 0.316;
+  c += postTap(i.uv - dir * 1.4) * 0.316;
+  c += postTap(i.uv + dir * 3.2) * 0.070;
+  c += postTap(i.uv - dir * 3.2) * 0.070;
+  return float4(c, 1);
+}
+float4 TonemapPS(PostOut i) : SV_Target {
+  float3 c = sceneTex.Sample(postSmp, i.uv).rgb + bloomTex.Sample(postSmp, i.uv).rgb * post1.y;
+  return float4(saturate(c), 1);
+}
 )HLSL";
 
 struct FrameCB {
   float viewProj[16];
   float eye[4], fogColor[4], fogParams[4], lightDir[4], sunColor[4], hemiSky[4], hemiGround[4], screen[4];
+  float skyZenith[4], skyHorizon[4], fillDir[4], grade[4];
 };
+static_assert(sizeof(FrameCB) == 256, "Frame constants must stay one 256-byte cbuffer slot");
 constexpr int kFrames = 2;
 constexpr DXGI_FORMAT kColorFmt = DXGI_FORMAT_R8G8B8A8_UNORM, kDepthFmt = DXGI_FORMAT_D32_FLOAT;
 D3D12_RESOURCE_DESC bufferDesc(UINT64 size) {
@@ -196,7 +291,72 @@ struct Dx12Renderer::Impl {
   // textured ground (setGroundTextures): Texture2DArray + its SRV heap, own root signature / PSO
   Com<ID3D12RootSignature> groundRoot; Com<ID3D12PipelineState> psoGround; Com<ID3D12DescriptorHeap> groundHeap; Com<ID3D12Resource> groundTex;
   float groundInvMean[GS_COUNT] = {}; bool groundOk = false;
+  // scene colour + half-res bloom (same UNORM format as the back buffer, so the existing PSOs can target it)
+  Com<ID3D12RootSignature> postRoot1, postRoot2; Com<ID3D12PipelineState> psoBright, psoBlur, psoTone;
+  Com<ID3D12DescriptorHeap> postRtvHeap, postSrvHeap; Com<ID3D12Resource> sceneTex, bloomTex[2];
+  UINT postRtvStride = 0, postSrvStride = 0; int bloomW = 0, bloomH = 0; bool postOk = false;
+  D3D12_RESOURCE_STATES sceneState = D3D12_RESOURCE_STATE_RENDER_TARGET, bloomState[2] = {D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_RENDER_TARGET};
   struct GroundVertex { float x, y, z; float r, g, b, a; float surface, lane, laneAt, tile; };
+  bool makePostRoot(Com<ID3D12RootSignature>& dst, UINT srvCount, std::string& err) {
+    D3D12_DESCRIPTOR_RANGE range = {}; range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV; range.NumDescriptors = srvCount; range.BaseShaderRegister = 2;
+    D3D12_ROOT_PARAMETER rp[2] = {};
+    rp[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE; rp[0].DescriptorTable.NumDescriptorRanges = 1; rp[0].DescriptorTable.pDescriptorRanges = &range; rp[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    rp[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS; rp[1].Constants.ShaderRegister = 3; rp[1].Constants.Num32BitValues = 8; rp[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    D3D12_STATIC_SAMPLER_DESC ss = {}; ss.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+    ss.AddressU = ss.AddressV = ss.AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP; ss.MaxLOD = D3D12_FLOAT32_MAX; ss.ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS; ss.ShaderRegister = 2; ss.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    D3D12_ROOT_SIGNATURE_DESC rsd = {}; rsd.NumParameters = 2; rsd.pParameters = rp; rsd.NumStaticSamplers = 1; rsd.pStaticSamplers = &ss;
+    Com<ID3DBlob> sig, sigErr;
+    if (FAILED(D3D12SerializeRootSignature(&rsd, D3D_ROOT_SIGNATURE_VERSION_1, sig.put(), sigErr.put()))) { err = "post root signature"; return false; }
+    TZ_HR(device->CreateRootSignature(0, sig->GetBufferPointer(), sig->GetBufferSize(), __uuidof(ID3D12RootSignature), dst.putVoid()), "CreateRootSignature(post)");
+    return true;
+  }
+  bool createPostPipeline(std::string& err) {
+    if (!makePostRoot(postRoot1, 1, err) || !makePostRoot(postRoot2, 2, err)) return false;
+    Com<ID3DBlob> vs, bright, blur, tone;
+    if (!compile("PostVSUv", "vs_5_0", vs, err) || !compile("BrightPS", "ps_5_0", bright, err) || !compile("BlurPS", "ps_5_0", blur, err) || !compile("TonemapPS", "ps_5_0", tone, err)) return false;
+    auto pso = [&](Com<ID3D12PipelineState>& dst, ID3D12RootSignature* root, ID3DBlob* ps, const char* what) {
+      D3D12_GRAPHICS_PIPELINE_STATE_DESC pd = {};
+      pd.pRootSignature = root; pd.VS = {vs->GetBufferPointer(), vs->GetBufferSize()}; pd.PS = {ps->GetBufferPointer(), ps->GetBufferSize()};
+      pd.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID; pd.RasterizerState.CullMode = D3D12_CULL_MODE_NONE; pd.RasterizerState.DepthClipEnable = TRUE;
+      pd.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+      pd.SampleMask = 0xffffffffu; pd.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+      pd.NumRenderTargets = 1; pd.RTVFormats[0] = kColorFmt; pd.SampleDesc.Count = 1;
+      return SUCCEEDED(device->CreateGraphicsPipelineState(&pd, __uuidof(ID3D12PipelineState), dst.putVoid())) || (err = what, false);
+    };
+    if (!pso(psoBright, postRoot1.get(), bright.get(), "bright PSO") || !pso(psoBlur, postRoot1.get(), blur.get(), "blur PSO") || !pso(psoTone, postRoot2.get(), tone.get(), "tonemap PSO")) return false;
+    D3D12_DESCRIPTOR_HEAP_DESC hd = {}; hd.NumDescriptors = 3; hd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+    TZ_HR(device->CreateDescriptorHeap(&hd, __uuidof(ID3D12DescriptorHeap), postRtvHeap.putVoid()), "post RTV heap");
+    hd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV; hd.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+    TZ_HR(device->CreateDescriptorHeap(&hd, __uuidof(ID3D12DescriptorHeap), postSrvHeap.putVoid()), "post SRV heap");
+    postRtvStride = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+    postSrvStride = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    return true;
+  }
+  bool makeColorTarget(Com<ID3D12Resource>& tex, UINT rw, UINT rh, UINT slot, std::string& err) {
+    D3D12_RESOURCE_DESC td = {}; td.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D; td.Width = rw; td.Height = rh; td.DepthOrArraySize = 1; td.MipLevels = 1;
+    td.Format = kColorFmt; td.SampleDesc.Count = 1; td.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+    D3D12_HEAP_PROPERTIES hp = heapProps(D3D12_HEAP_TYPE_DEFAULT);
+    D3D12_CLEAR_VALUE cv = {}; cv.Format = kColorFmt;
+    TZ_HR(device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &td, D3D12_RESOURCE_STATE_RENDER_TARGET, &cv, __uuidof(ID3D12Resource), tex.putVoid()), "post target");
+    D3D12_CPU_DESCRIPTOR_HANDLE rtv = postRtvHeap->GetCPUDescriptorHandleForHeapStart(); rtv.ptr += (SIZE_T)slot * postRtvStride;
+    device->CreateRenderTargetView(tex.get(), nullptr, rtv);
+    D3D12_SHADER_RESOURCE_VIEW_DESC sd = {}; sd.Format = kColorFmt; sd.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    sd.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING; sd.Texture2D.MipLevels = 1;
+    D3D12_CPU_DESCRIPTOR_HANDLE srv = postSrvHeap->GetCPUDescriptorHandleForHeapStart(); srv.ptr += (SIZE_T)slot * postSrvStride;
+    device->CreateShaderResourceView(tex.get(), &sd, srv);
+    return true;
+  }
+  bool ensurePostTargets(std::string& err) {
+    if (!postRoot1) return false;
+    sceneTex.reset(); bloomTex[0].reset(); bloomTex[1].reset();
+    sceneState = bloomState[0] = bloomState[1] = D3D12_RESOURCE_STATE_RENDER_TARGET;
+    bloomW = std::max(1, width / 2); bloomH = std::max(1, height / 2);
+    if (!makeColorTarget(sceneTex, (UINT)std::max(1, width), (UINT)std::max(1, height), 0, err)) return false;
+    if (!makeColorTarget(bloomTex[0], (UINT)bloomW, (UINT)bloomH, 1, err)) return false;
+    if (!makeColorTarget(bloomTex[1], (UINT)bloomW, (UINT)bloomH, 2, err)) return false;
+    postOk = true;
+    return true;
+  }
   bool createGroundPipeline(std::string& err) {
     D3D12_DESCRIPTOR_RANGE range = {}; range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV; range.NumDescriptors = 1; range.BaseShaderRegister = 1;
     D3D12_ROOT_PARAMETER rp[3] = {};
@@ -509,6 +669,8 @@ bool Dx12Renderer::init(HWND__* hwnd, int width, int height, std::string& err) {
   if (!d->models.init(d->device.get(), kFrames, (int)kColorFmt, (int)kDepthFmt, merr)) OutputDebugStringA(("Tommyzilla: model renderer disabled: " + merr + "\n").c_str());
   std::string verr;  // video pass failure is not fatal either: the in-engine closing shot plays instead
   if (!d->createVideoPipeline(verr)) OutputDebugStringA(("Tommyzilla: video pass disabled: " + verr + "\n").c_str());
+  std::string perr;
+  if (!d->createPostPipeline(perr) || !d->ensurePostTargets(perr)) { d->postOk = false; OutputDebugStringA(("Tommyzilla: bloom pass disabled: " + perr + "\n").c_str()); }
   return true;
 }
 
@@ -523,7 +685,8 @@ void Dx12Renderer::resize(int width, int height) {
   HRESULT hr = d->swap->ResizeBuffers(kFrames, (UINT)width, (UINT)height, kColorFmt, 0);
   if (!d->checkDevice(hr, "ResizeBuffers")) return;
   std::string err;
-  if (!d->createTargets(err)) { d->lost = true; d->fail(err); }
+  if (!d->createTargets(err)) { d->lost = true; d->fail(err); return; }
+  if (d->postRoot1 && !d->ensurePostTargets(err)) { d->postOk = false; OutputDebugStringA(("Tommyzilla: bloom resize failed: " + err + "\n").c_str()); }
 }
 
 bool Dx12Renderer::render(const RenderList& rl, const ModelDrawList* models, const RenderList* right) {
@@ -559,6 +722,11 @@ bool Dx12Renderer::render(const RenderList& rl, const ModelDrawList* models, con
     set4(cb.hemiSky, V.hemiSky.r * V.hemiIntensity, V.hemiSky.g * V.hemiIntensity, V.hemiSky.b * V.hemiIntensity, 1);
     set4(cb.hemiGround, V.hemiGround.r * V.hemiIntensity, V.hemiGround.g * V.hemiIntensity, V.hemiGround.b * V.hemiIntensity, 1);
     set4(cb.screen, (float)r.width, (float)r.height, 0, 0);  // UI pixel space is always the whole window
+    set4(cb.skyZenith, V.skyZenith.r, V.skyZenith.g, V.skyZenith.b, 1);
+    set4(cb.skyHorizon, V.skyHorizon.r, V.skyHorizon.g, V.skyHorizon.b, 1);
+    Vec3 fill = normalize(Vec3(-L.x * 0.65f, 0.55f, -L.z * 0.65f));
+    set4(cb.fillDir, fill.x, fill.y, fill.z, 0.42f);
+    set4(cb.grade, V.exposure > 0.05f ? V.exposure : 1.18f, V.contrast > 0.05f ? V.contrast : 1.08f, 0.72f, 0.42f);
     std::memcpy(base + v * 256, &cb, sizeof cb);
   }
   off = 512;
@@ -599,8 +767,13 @@ bool Dx12Renderer::render(const RenderList& rl, const ModelDrawList* models, con
   D3D12_CPU_DESCRIPTOR_HANDLE dsv = r.dsvHeap->GetCPUDescriptorHandleForHeapStart();
   float clear[4] = {rl.sky.r, rl.sky.g, rl.sky.b, 1};
   c->ClearRenderTargetView(rtv, clear, 0, nullptr);
+  D3D12_CPU_DESCRIPTOR_HANDLE colorRtv = rtv;
+  if (r.postOk && r.sceneTex) {
+    colorRtv = r.postRtvHeap->GetCPUDescriptorHandleForHeapStart();  // slot 0 = scene colour
+    c->ClearRenderTargetView(colorRtv, clear, 0, nullptr);
+  }
   c->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
-  c->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
+  c->OMSetRenderTargets(1, &colorRtv, FALSE, &dsv);
   D3D12_VIEWPORT vpt = {0, 0, (float)r.width, (float)r.height, 0, 1}; D3D12_RECT sc = {0, 0, r.width, r.height};
   c->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
   const bool haveModels = models && r.models.ready();
@@ -612,7 +785,7 @@ bool Dx12Renderer::render(const RenderList& rl, const ModelDrawList* models, con
     int x0 = std::max(0, std::min(r.width, V.vpX)), vw = V.vpW > 0 ? std::min(V.vpW, r.width - x0) : r.width - x0;
     D3D12_VIEWPORT vv = {(float)x0, 0, (float)std::max(1, vw), (float)r.height, 0, 1}; D3D12_RECT vs = {x0, 0, x0 + std::max(1, vw), r.height};
     c->RSSetViewports(1, &vv); c->RSSetScissorRects(1, &vs);
-    if (v > 0) { float vc[4] = {V.sky.r, V.sky.g, V.sky.b, 1}; c->ClearRenderTargetView(rtv, vc, 1, &vs); }
+    if (v > 0) { float vc[4] = {V.sky.r, V.sky.g, V.sky.b, 1}; c->ClearRenderTargetView(colorRtv, vc, 1, &vs); }
     restore(r.psoOpaque.get());
     auto drawBatches = [&](const std::vector<Batch>& bs) {
       for (const Batch& b : bs) {
@@ -636,8 +809,44 @@ bool Dx12Renderer::render(const RenderList& rl, const ModelDrawList* models, con
     if (!alpha[v].empty()) { c->SetPipelineState(r.psoAlpha.get()); drawBatches(alpha[v]); }
     if (haveModels) { r.models.draw(c, cbv, (int)fi, *models, v ? 3 : 1); restore(r.psoAlpha.get()); }
   }
+  if (r.postOk && r.sceneTex) {  // bright extract + separable blur, then add it back on the back buffer
+    auto barrier = [&](ID3D12Resource* res, D3D12_RESOURCE_STATES& st, D3D12_RESOURCE_STATES to) {
+      if (!res || st == to) return;
+      D3D12_RESOURCE_BARRIER b = {}; b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION; b.Transition.pResource = res;
+      b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES; b.Transition.StateBefore = st; b.Transition.StateAfter = to;
+      c->ResourceBarrier(1, &b); st = to;
+    };
+    auto rtvAt = [&](UINT i) { D3D12_CPU_DESCRIPTOR_HANDLE h = r.postRtvHeap->GetCPUDescriptorHandleForHeapStart(); h.ptr += (SIZE_T)i * r.postRtvStride; return h; };
+    auto gpuAt = [&](UINT i) { D3D12_GPU_DESCRIPTOR_HANDLE h = r.postSrvHeap->GetGPUDescriptorHandleForHeapStart(); h.ptr += (UINT64)i * r.postSrvStride; return h; };
+    auto fullscreen = [&](int bw, int bh, ID3D12PipelineState* pso, ID3D12RootSignature* root, D3D12_GPU_DESCRIPTOR_HANDLE table, D3D12_CPU_DESCRIPTOR_HANDLE dst, const float k[8]) {
+      c->OMSetRenderTargets(1, &dst, FALSE, nullptr);
+      D3D12_VIEWPORT bv = {0, 0, (float)bw, (float)bh, 0, 1}; D3D12_RECT br = {0, 0, bw, bh};
+      c->RSSetViewports(1, &bv); c->RSSetScissorRects(1, &br);
+      c->SetGraphicsRootSignature(root); c->SetPipelineState(pso);
+      ID3D12DescriptorHeap* hs[] = {r.postSrvHeap.get()}; c->SetDescriptorHeaps(1, hs);
+      c->SetGraphicsRootDescriptorTable(0, table); c->SetGraphicsRoot32BitConstants(1, 8, k, 0);
+      c->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST); c->DrawInstanced(3, 1, 0, 0);
+    };
+    barrier(r.sceneTex.get(), r.sceneState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    barrier(r.bloomTex[0].get(), r.bloomState[0], D3D12_RESOURCE_STATE_RENDER_TARGET);
+    float brightK[8] = {1.f / (float)r.width, 1.f / (float)r.height, 0.86f, 0, 0, 0.42f, 0, 0};
+    fullscreen(r.bloomW, r.bloomH, r.psoBright.get(), r.postRoot1.get(), gpuAt(0), rtvAt(1), brightK);
+    barrier(r.bloomTex[0].get(), r.bloomState[0], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    barrier(r.bloomTex[1].get(), r.bloomState[1], D3D12_RESOURCE_STATE_RENDER_TARGET);
+    float blurH[8] = {1.f / (float)r.bloomW, 1.f / (float)r.bloomH, 0, 1, 0, 0, 0, 0};
+    fullscreen(r.bloomW, r.bloomH, r.psoBlur.get(), r.postRoot1.get(), gpuAt(1), rtvAt(2), blurH);
+    barrier(r.bloomTex[1].get(), r.bloomState[1], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    barrier(r.bloomTex[0].get(), r.bloomState[0], D3D12_RESOURCE_STATE_RENDER_TARGET);
+    float blurV[8] = {1.f / (float)r.bloomW, 1.f / (float)r.bloomH, 0, 0, 1, 0, 0, 0};
+    fullscreen(r.bloomW, r.bloomH, r.psoBlur.get(), r.postRoot1.get(), gpuAt(2), rtvAt(1), blurV);
+    barrier(r.bloomTex[0].get(), r.bloomState[0], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    float toneK[8] = {0, 0, 0, 0, 0, 0.42f, 0, 0};
+    fullscreen(r.width, r.height, r.psoTone.get(), r.postRoot2.get(), gpuAt(0), rtv, toneK);
+    barrier(r.sceneTex.get(), r.sceneState, D3D12_RESOURCE_STATE_RENDER_TARGET);
+  }
   // fullscreen again for the video + UI (both HUDs and the menus are in rl.ui, in window pixels)
   cbv = gpu;
+  c->OMSetRenderTargets(1, &rtv, FALSE, nullptr);
   c->RSSetViewports(1, &vpt); c->RSSetScissorRects(1, &sc);
   restore(r.psoUI.get());
   if (vid) {  // after-credits video over the scene, under the UI (sign overlay / caption)
@@ -684,6 +893,8 @@ void Dx12Renderer::shutdown() {
   if (d->fenceEvent) { CloseHandle(d->fenceEvent); d->fenceEvent = nullptr; }
   d->vidTex.reset(); d->vidHeap.reset(); d->psoVid.reset(); d->vidRoot.reset();
   d->groundTex.reset(); d->groundHeap.reset(); d->psoGround.reset(); d->groundRoot.reset(); d->groundOk = false;
+  d->sceneTex.reset(); d->bloomTex[0].reset(); d->bloomTex[1].reset(); d->postOk = false;
+  d->psoBright.reset(); d->psoBlur.reset(); d->psoTone.reset(); d->postRoot1.reset(); d->postRoot2.reset(); d->postRtvHeap.reset(); d->postSrvHeap.reset();
   d->psoOpaque.reset(); d->psoAlpha.reset(); d->psoUI.reset(); d->rootSig.reset(); d->meshBuf.reset();
   d->cmd.reset(); for (auto& a : d->alloc) a.reset();
   d->depth.reset(); for (auto& b : d->backBuffers) b.reset();

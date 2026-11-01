@@ -96,6 +96,8 @@ bool loadGltf(const std::string& path, Model& M, std::string& err, const LoadOpt
       m.baseColor = {linearToSrgb(f[0]), linearToSrgb(f[1]), linearToSrgb(f[2]), f[3]};
       const cgltf_texture* tx = gm.pbr_metallic_roughness.base_color_texture.texture;
       if (tx && tx->image) m.texture = imageTex[(size_t)(tx->image - d->images)];
+      m.roughness = gm.pbr_metallic_roughness.roughness_factor;
+      m.metallic = gm.pbr_metallic_roughness.metallic_factor;
     }
     m.doubleSided = gm.double_sided != 0;
     m.blend = gm.alpha_mode == cgltf_alpha_mode_blend;

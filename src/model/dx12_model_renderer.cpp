@@ -38,6 +38,7 @@ const char* kModelShader = R"HLSL(
 cbuffer Frame : register(b0) {
   row_major float4x4 viewProj;
   float4 eye; float4 fogColor; float4 fogParams; float4 lightDir; float4 sunColor; float4 hemiSky; float4 hemiGround; float4 screen;
+  float4 skyZenith; float4 skyHorizon; float4 fillDir; float4 grade;  // same layout as the primitive Frame cbuffer
 };
 cbuffer Draw : register(b1) { float4 w0; float4 w1; float4 w2; float4 color; float4 params; };  // node transform rows + material colour
 Texture2D tex0 : register(t0);
@@ -48,7 +49,7 @@ SamplerState samp0 : register(s0);
 // world rows, tint, colour mix (rgb + amount) and glow.
 struct VSIn { float3 pos : POSITION; float3 nrm : NORMAL; float2 uv : TEXCOORD0; float4 col : COLOR0;
               float4 i0 : INSTW0; float4 i1 : INSTW1; float4 i2 : INSTW2; float4 tint : INSTTINT; float4 mixc : INSTMIX; float4 ip : INSTPARAM; };
-struct PSIn { float4 pos : SV_Position; float3 wpos : TEXCOORD0; float3 nrm : TEXCOORD1; float2 uv : TEXCOORD2; float4 col : COLOR0; float glow : TEXCOORD3; float2 fin : TEXCOORD4; };
+struct PSIn { float4 pos : SV_Position; float3 wpos : TEXCOORD0; float3 nrm : TEXCOORD1; float2 uv : TEXCOORD2; float4 col : COLOR0; float glow : TEXCOORD3; float2 fin : TEXCOORD4; float2 surf : TEXCOORD5; };
 PSIn MVS(VSIn i) {
   float4 p = float4(i.pos, 1);
   PSIn o;
@@ -58,6 +59,7 @@ PSIn MVS(VSIn i) {
   o.nrm = float3(dot(nm, i.i0.xyz), dot(nm, i.i1.xyz), dot(nm, i.i2.xyz));
   float4 c = color; c.rgb = lerp(c.rgb, i.mixc.rgb, i.mixc.a); c *= i.tint;
   o.wpos = w; o.pos = mul(float4(w, 1), viewProj); o.uv = i.uv; o.col = i.col * c; o.glow = i.ip.y; o.fin = float2(i.ip.x, i.ip.z);
+  o.surf = params.xy;  // material roughness, metallic (draw constants)
   return o;
 }
 // Kaiju finishes (params: id 1 gold, 2 chrome, 3 holographic; t = time). base = surface colour, lit = normal shading.
@@ -83,16 +85,59 @@ float3 finishShade(float id, float t, float3 base, float3 lit, float3 n, float3 
     return lerp(lit, rgb * (0.55 + 0.55 * ndl) + 0.15, 0.7) + fres * 0.5 + spec * 0.8;
   }
 }
+float3 toneMap(float3 c) {
+  c *= max(grade.x, 0.01);
+  float a = 2.51, b = 0.03, cc = 2.43, d = 0.59, e = 0.14;
+  c = saturate((c * (a * c + b)) / (c * (cc * c + d) + e));
+  return saturate((c - 0.5) * grade.y + 0.5);
+}
+float3 fogApply(float3 c, float3 wpos) {
+  float3 dir = wpos - eye.xyz;
+  float dist = length(dir);
+  float3 vd = dir / max(dist, 1e-3);
+  float upv = saturate(vd.y * 1.15 + 0.02);
+  float3 skyCol = lerp(skyHorizon.rgb, skyZenith.rgb, upv);
+  float f = saturate((dist - fogParams.x) / max(1e-3, fogParams.y - fogParams.x));
+  float haze = saturate((10.0 - wpos.y) / 28.0) * 0.28;
+  f = saturate(f + haze * (1.0 - f));
+  return lerp(c, skyCol, f);
+}
+float contactAo(float3 n, float3 wpos) {
+  float h = smoothstep(0.15, 4.5, wpos.y);
+  float grazing = 1.0 - saturate(n.y);
+  float strength = grade.z > 0.05 ? grade.z : 0.72;
+  return lerp(1.0, lerp(strength, 1.0, h), grazing);
+}
+float3 shadeLit(float3 base, float3 n, float3 wpos, float glow, float rough, float metal) {
+  float3 v = normalize(eye.xyz - wpos);
+  float3 L = normalize(lightDir.xyz);
+  float ndotl = dot(n, L);
+  float wrap = saturate((ndotl + 0.55) / 1.55);
+  float3 amb = lerp(hemiGround.rgb, hemiSky.rgb, n.y * 0.5 + 0.5);
+  float fill = saturate(dot(n, normalize(fillDir.xyz))) * fillDir.w;
+  float mx = max(base.r, max(base.g, base.b));
+  float mn = min(base.r, min(base.g, base.b));
+  float sat = mx > 1e-4 ? (mx - mn) / mx : 0;
+  float roughC = saturate(rough * lerp(0.62, 1.0, 1.0 - sat));
+  float metalC = saturate(metal);
+  float3 diff = base * (1.0 - metalC * 0.85) * (amb + sunColor.rgb * wrap + hemiSky.rgb * fill);
+  float3 H = normalize(L + v);
+  float specPow = lerp(10.0, 72.0, 1.0 - roughC);
+  float spec = pow(saturate(dot(n, H)), specPow) * saturate(ndotl);
+  float3 f0 = lerp(float3(0.04, 0.04, 0.04), base, metalC);
+  diff += f0 * spec * sunColor.rgb * lerp(0.35, 1.35, 1.0 - roughC);
+  diff *= contactAo(n, wpos);
+  diff += base * glow;
+  return diff;
+}
 float4 MPS(PSIn i) : SV_Target {
   float4 base = i.col * tex0.Sample(samp0, i.uv);
   float l2 = dot(i.nrm, i.nrm);
   float3 n = l2 > 1e-12 ? i.nrm * rsqrt(l2) : float3(0, 1, 0);
-  float3 amb = lerp(hemiGround.rgb, hemiSky.rgb, n.y * 0.5 + 0.5);
-  float ndl = saturate(dot(n, lightDir.xyz));
-  float3 c = base.rgb * (amb + sunColor.rgb * ndl) + base.rgb * i.glow;
+  float rough = saturate(i.surf.x);
+  float3 c = shadeLit(base.rgb, n, i.wpos, i.glow, rough, i.surf.y);
   if (i.fin.x > 0.5) c = finishShade(i.fin.x, i.fin.y, base.rgb, c, n, i.wpos) + base.rgb * i.glow;
-  float f = saturate((distance(i.wpos, eye.xyz) - fogParams.x) / max(1e-3, fogParams.y - fogParams.x));
-  return float4(lerp(saturate(c), fogColor.rgb, f), base.a);
+  return float4(toneMap(fogApply(c, i.wpos)), base.a);
 }
 )HLSL";
 
@@ -391,6 +436,7 @@ void Dx12ModelRenderer::draw(ID3D12GraphicsCommandList* c, unsigned long long fr
         DrawCB cb = {};
         for (int row = 0; row < 4; row++) { cb.w0[row] = node.m[row][0]; cb.w1[row] = node.m[row][1]; cb.w2[row] = node.m[row][2]; }
         cb.color[0] = col.r; cb.color[1] = col.g; cb.color[2] = col.b; cb.color[3] = col.a;
+        cb.params[0] = mt ? mt->roughness : 1.f; cb.params[1] = mt ? mt->metallic : 0.f;
         std::memcpy(r.ringPtr[fi] + r.ringUsed, &cb, sizeof cb);
         c->SetGraphicsRootConstantBufferView(1, ringVA + r.ringUsed); r.ringUsed += 256;
         UINT slot = mt && mt->texture >= 0 && mt->texture < (int)g->texSlot.size() ? g->texSlot[(size_t)mt->texture] : 0;

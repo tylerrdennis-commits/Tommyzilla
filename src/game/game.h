@@ -563,6 +563,16 @@ struct Game {
   bool gauntletReady() const;                             // gauntlet owned + equipped (gauntlet slot)
   int stoneCount() const;
   void equipGauntlet(bool on);
+  // Infinity Stones: pick an owned stone and assign each of its powers to a different action
+  // (0 pulse, 1 strike, 2 blast, 3 roar). Empty powerId clears that action.
+  bool assignStonePower(int channel, const std::string& stoneId, const std::string& powerId);
+  bool stonePowerOn(int channel, StonePower& out) const;  // equipped gauntlet + owned stone + a matching bind
+  float stoneBrickMul(int moveKind) const;
+  float stoneRangeMul(int moveKind) const;
+  void onSuperFired();
+  std::string stoneBindSummary() const;
+  void openStoneMenu();
+  void openStonePowers(int stoneIndex);
   void setupArcLevel(const LevelDef& L);
   void updateArc(float dt);
   void renderArc(RenderList& rl);
