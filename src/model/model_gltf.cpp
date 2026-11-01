@@ -1,5 +1,6 @@
 // glTF 2.0 / GLB loader (cgltf). Meshes (triangles), node hierarchy, materials (base colour factor + texture),
 // vertex colours, skins and TRS animation channels. Morph targets, cameras, lights and extensions are ignored.
+#include <cstdlib>
 #include <cstring>
 #include "../../third_party/cgltf/cgltf.h"
 #include "model_loader.h"
