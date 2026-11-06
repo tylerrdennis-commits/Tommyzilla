@@ -64,6 +64,8 @@ bool loadFbx(const std::string& path, Model& M, std::string& err, const LoadOpti
     mt.baseColor = {linearToSrgb((float)c.x), linearToSrgb((float)c.y), linearToSrgb((float)c.z), 1};
     const ufbx_texture* t = m->pbr.base_color.texture ? m->pbr.base_color.texture : dc.texture;
     mt.texture = texture(t);
+    if (m->pbr.roughness.has_value) mt.roughness = (float)m->pbr.roughness.value_real;
+    if (m->pbr.metalness.has_value) mt.metallic = (float)m->pbr.metalness.value_real;
     if (mt.texture >= 0) mt.baseColor = {1, 1, 1, 1};  // FBX exporters write a grey/white diffuse beside the map
     M.materials.push_back(mt);
   }

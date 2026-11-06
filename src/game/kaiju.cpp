@@ -24,18 +24,19 @@ enum { PROPS_NONE, PROPS_SHATTER, PROPS_FLING };
 const MonsterDef& Kaiju::def() const { return T.monsters[(size_t)std::max(0, std::min(monster, (int)T.monsters.size() - 1))]; }
 // size: species scale x rarity size bonus x growth (hatchling ~0.42 -> 1, capped); legacy / un-rolled monsters are full size
 float Kaiju::scale() const {
-  if (!G || !G->hasLook(def().id)) return def().scale;
-  return def().scale * G->rarityOf(def().id).size * eggs::growthScale(G->kaijuXp());
+  float s = (!G || !G->hasLook(def().id)) ? def().scale : def().scale * G->rarityOf(def().id).size * eggs::growthScale(G->kaijuXp());
+  if (G && G->hasInfinity("power")) s *= 1.2f;
+  return s;
 }
 float Kaiju::radius() const { return C.kaijuRadius * scale(); }
 static float vmult(const Kaiju& k, vpow::Stat st) { return G ? G->vault.mult(k.def().id, st) : 1.f; }  // Wren: Vault kaiju powers
 float Kaiju::maxHp() const { return C.kaijuMaxHp * def().hp * (G && G->hasLook(def().id) ? G->rarityOf(def().id).hp : 1.f) * vmult(*this, vpow::ST_HP); }
 Vec3 Kaiju::mouth() const { Anchors a = anchorsFor(def().plan); Vec3 m = rotY(a.mouth * scale(), facing + twist); return pos + m + Vec3(0, lift + (inWater ? -2.f : 0.f), 0); }
 Vec3 Kaiju::hand() const { Anchors a = anchorsFor(def().plan); Vec3 m = rotY(a.hand * scale(), facing + twist); return pos + m + Vec3(0, lift + (inWater ? -2.f : 0.f), 0); }
-float Kaiju::moveRadius(const MoveDef& m) const { return m.radius * prog::rangeMult(G->P().rangeLvl) * vmult(*this, vpow::ST_RANGE); }
+float Kaiju::moveRadius(const MoveDef& m) const { return m.radius * prog::rangeMult(G->P().rangeLvl) * vmult(*this, vpow::ST_RANGE) * (G ? G->stoneRangeMul((int)m.kind) : 1.f); }
 float Kaiju::moveBricks(const MoveDef& m) const {
   float baby = G->hasLook(def().id) ? lerpf(E.babyPower, 1.f, G->growthFrac()) : 1.f;  // small hatchlings hit harder for their size (fair early game)
-  return m.bricks * prog::damageMult(G->P().dmgLvl) * (m.kind == MoveKind::Melee ? def().melee : def().power) * baby * vmult(*this, vpow::ST_DAMAGE);
+  return m.bricks * prog::damageMult(G->P().dmgLvl) * (m.kind == MoveKind::Melee ? def().melee : def().power) * baby * vmult(*this, vpow::ST_DAMAGE) * (G ? G->stoneBrickMul((int)m.kind) : 1.f);
 }
 
 void Kaiju::respawn(float x, float z, float f) {
@@ -79,7 +80,7 @@ bool Kaiju::tryStart(int mi) {
     if (m.shape == MoveShape::Blaster) { fireBlaster(mi); return true; }
     // Glow Breath puff: flies from the mouth down to the ground about `reach` metres ahead
     Vec3 f = fwd(), mo = mouth();
-    float reach = m.reach * prog::rangeMult(G->P().rangeLvl) * vmult(*this, vpow::ST_RANGE) * std::max(1.f, scale());
+    float reach = m.reach * prog::rangeMult(G->P().rangeLvl) * vmult(*this, vpow::ST_RANGE) * std::max(1.f, scale()) * (G ? G->stoneRangeMul((int)m.kind) : 1.f);
     Vec3 tgt = pos + f * reach; tgt.y = 0;
     Vec3 dir = tgt - mo; float l = length(dir); dir = dir * (1.f / std::max(0.01f, l));
     Projectile p; p.move = mi; p.pos = mo + f * 1.5f; p.t = 0; p.lob = false;
@@ -92,6 +93,7 @@ bool Kaiju::tryStart(int mi) {
   if (cooldowns[mi] > 0) return false;
   if (m.kind == MoveKind::Super && !G->spendEat(m, 1)) return false;  // supers are fuelled by eaten civilians (no cooldown)
   at = Attack(); at.move = mi; at.dur = m.duration; at.power = 1; attackSeq++;
+  if (m.kind == MoveKind::Super) G->onSuperFired();
   cooldowns[mi] = m.cooldown;  // supers have cooldown 0 in moves.json (the glove keeps its own)
   G->play(soundByName(m.sound, SND_claw), 1, 0.95f + frand() * 0.1f);
   G->tutorialUsed(m.id);
@@ -99,7 +101,7 @@ bool Kaiju::tryStart(int mi) {
     Vec3 f = fwd(), mo = mouth();
     Projectile p; p.move = mi; p.pos = mo + f * 2; p.t = 0; p.lob = m.shape == MoveShape::Lob;
     p.vel = p.lob ? f * m.speed + Vec3(0, 16, 0) : f * m.speed + Vec3(0, -3, 0);
-    p.life = m.reach / std::max(1.f, m.speed) + 1.0f;
+    p.life = m.reach * (G ? G->stoneRangeMul((int)m.kind) : 1.f) / std::max(1.f, m.speed) + 1.0f;
     projectiles.push_back(p);
   }
   return true;
@@ -113,7 +115,7 @@ void Kaiju::fireBlaster(int mi) {
   h = hand();
   Vec3 dir = aim - h; float l = length(dir); dir = l > 1e-3f ? dir * (1.f / l) : fwd();
   Bolt b; b.move = mi; b.pos = h; b.vel = dir * m.speed; b.t = 0;
-  b.life = (m.reach * prog::rangeMult(G->P().rangeLvl) * vmult(*this, vpow::ST_RANGE) + 40) / std::max(1.f, m.speed);
+  b.life = (m.reach * prog::rangeMult(G->P().rangeLvl) * vmult(*this, vpow::ST_RANGE) * (G ? G->stoneRangeMul((int)m.kind) : 1.f) + 40) / std::max(1.f, m.speed);
   bolts.push_back(b);
   aimFlash = 0.12f;
   for (int k = 0; k < 6; k++) G->fx->particle(h, dir * 8 + Vec3((frand() - 0.5f) * 4, (frand() - 0.5f) * 4, (frand() - 0.5f) * 4), 0.3f, 0.5f, hexColor(k % 2 ? 0xffe03a : 0xff6bd5));
@@ -243,6 +245,7 @@ void Kaiju::update(float dt, const InputState& in) {
   float mag = std::min(1.f, std::hypot(mx, mz));
   const MoveDef* am = at.move >= 0 ? &T.moves[at.move] : nullptr;
   float speed = C.kaijuSpeed * prog::speedMult(P.speedLvl) * def().speed * vmult(*this, vpow::ST_SPEED) * (in.held[A_SPRINT] ? C.kaijuSprint : 1.f);
+  if (G->hasInfinity("space")) speed *= 1.35f;
   inWater = G->world.isWater(pos.x, pos.z);
   if (inWater) speed *= C.waterSlow;
   if (am) speed *= am->shape == MoveShape::Tornado ? 1.2f : am->shape == MoveShape::Spin ? 0.7f : am->shape == MoveShape::Dash ? 0.f : 0.3f;
@@ -255,6 +258,7 @@ void Kaiju::update(float dt, const InputState& in) {
     if (cam.idle > C.camAutoFollowDelay && in.moveY > -0.3f) cam.yaw += wrapAngle((facing + PI) - cam.yaw) * std::min(1.f, C.camAutoFollowRate * dt);
   }
   speedNow = mag * speed;
+  sprinting = in.held[A_SPRINT] && mag > 0.05f;   // the model's run clip follows the Shift / L3 intent (not a speed threshold)
   if (G->gloveEquipped() && G->mode == Mode::Play) {  // secret glove: one pulse per gloveStep metres walked, nothing while standing still
     float moved = dist2D(pos.x, pos.z, gloveLast.x, gloveLast.z);
     if (moved < 20) gloveDist += moved;  // ignore teleports / respawns
@@ -321,6 +325,7 @@ void Kaiju::update(float dt, const InputState& in) {
       charging = false; float power = 0.35f + 0.65f * charge;
       if (m.kind != MoveKind::Super || G->spendEat(m, charge)) {  // cost checked + spent on release (scales with charge)
         at = Attack(); at.move = chargeSlot; at.dur = m.duration; at.power = power; cooldowns[chargeSlot] = 0;
+        if (m.kind == MoveKind::Super) G->onSuperFired();
         G->play(soundByName(m.sound, SND_roar), 0.5f + 0.5f * power); G->tutorialUsed(m.id);
       }
     }
@@ -345,7 +350,7 @@ void Kaiju::updateAttack(float dt) {
   const MoveDef& m = T.moves[at.move]; int mi = at.move;
   at.t += dt; float k = std::min(1.f, at.t / at.dur), sc = scale();
   Vec3 f = fwd(), p = pos;
-  float r = moveRadius(m) * std::max(1.f, sc * 0.9f), reach = m.reach * prog::rangeMult(G->P().rangeLvl) * vmult(*this, vpow::ST_RANGE) * sc;
+  float r = moveRadius(m) * std::max(1.f, sc * 0.9f), reach = m.reach * prog::rangeMult(G->P().rangeLvl) * vmult(*this, vpow::ST_RANGE) * sc * (G ? G->stoneRangeMul((int)m.kind) : 1.f);
   auto once = [&](float when, auto fn) { if (!at.hitDone && k >= when) { at.hitDone = true; fn(); } };
   auto twice = [&](float when, auto fn) { if (!at.hit2 && k >= when) { at.hit2 = true; fn(); } };
   auto ticks = [&](float every, auto fn) { at.tick -= dt; if (at.tick <= 0) { at.tick += every; fn(); } };

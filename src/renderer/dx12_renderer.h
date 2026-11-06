@@ -1,4 +1,5 @@
-// Minimal Direct3D 12 renderer: instanced unit primitives with flat colour + hemisphere/Lambert lighting and fog,
+// Minimal Direct3D 12 renderer: instanced unit primitives with hemisphere + wrapped key light, contact darkening,
+// a dusk sky gradient, distance haze, ACES tonemap and a mild half-resolution bloom. Fog matches the sky.
 // plus 2D UI triangles, and the textured ground pass (Texture2DArray, world-space UVs; see game/ground.h). Loaded models
 // are drawn by src/model. Shaders are embedded HLSL compiled at startup with D3DCompile.
 #pragma once

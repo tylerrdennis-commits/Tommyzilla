@@ -113,6 +113,9 @@ void Game::openMainMenu() {
     MenuItem ch; ch.label = "Characters"; ch.right = std::to_string(save.monsters.size()) + "/" + std::to_string(T.monsters.size());
     ch.desc = "Pick any monster you have hatched. Rarer kaiju start bigger and tougher, and each one has its own colours."; ch.act = [this]() { openCharacterSelect(false); };
     mm.items.push_back(ch);
+    MenuItem inf; inf.label = "Infinity Stones"; inf.right = std::to_string(save.infinity.size()) + "/" + std::to_string(kInfinityCount);
+    inf.desc = "Choose which stones to bring. Each one explains what it does."; inf.act = [this]() { openInfinityStones(); };
+    mm.items.push_back(inf);
     MenuItem op; op.label = "Options"; op.desc = "Sound, controls and save data"; op.act = [this]() { openOptions(); }; mm.items.push_back(op);
     if (slots) { MenuItem sl; sl.label = "Switch player / save slot"; sl.right = "Slot " + std::to_string(slot + 1); sl.desc = "Three save slots - one for each player"; sl.act = [this]() { persist(); openSlotMenu(); }; mm.items.push_back(sl); }
     {  // Vault: difficulty + player count (Titan's DiffMods); Left/Right or Confirm cycles
@@ -187,11 +190,21 @@ void Game::openSkills() {
       MenuItem g;
       if (p.gauntlet) {
         g.label = "  The Bulk's Gauntlet"; g.right = p.gauntletOn ? "EQUIPPED" : "off"; g.icon = 2; g.iconColor = hexColor(0xffcc33);
-        g.desc = "Holds the six stones. Stones: " + std::to_string(stoneCount()) + "/6. Each stone makes its pulse flatten more buildings (up to 10)." + (adventure ? "" : " Press " + btn("RB", "R") + " for the rainbow wave!");
+        g.desc = "Holds the six stones. Stones: " + std::to_string(stoneCount()) + "/6. Each stone makes its pulse flatten more buildings (up to 10). Open Infinity Stones to assign each stone's powers to Pulse, Strike, Blast and Roar." + (adventure ? "" : " Press " + btn("RB", "R") + " for the rainbow wave!");
         g.act = [this]() { equipGauntlet(!P().gauntletOn); play(SND_ui); persist(); };
       } else if (p.gauntletCracked) { g.label = "  "; g.icon = 4; g.iconColor = Color{0.45f, 0.42f, 0.5f, 1}; g.enabled = false; }
       else { g.label = "  "; g.icon = 2; g.iconColor = Color{0.4f, 0.4f, 0.48f, 1}; g.enabled = false; }
       mm.items.push_back(g);
+      if (p.gauntlet || p.gauntletSlot) {
+        MenuItem inf; inf.label = "Infinity Stones"; inf.icon = 3; inf.iconColor = hexColor(0xb06bff);
+        inf.right = std::to_string(stoneCount()) + "/6";
+        inf.enabled = p.gauntlet;
+        inf.desc = p.gauntlet
+          ? "Choose a stone and assign its powers to different actions (Pulse, Strike, Blast, Roar). Each power explains itself. " + stoneBindSummary()
+          : "The gauntlet slot is empty. The stones show up once you have the gauntlet.";
+        inf.act = [this]() { openStoneMenu(); };
+        mm.items.push_back(inf);
+      }
     }
     if (p.zooKey) {  // collection: only ever listed once owned
       MenuItem k; k.label = "  Zookeeper's Key"; k.right = "collection"; k.icon = 1; k.iconColor = hexColor(0xffcc33); k.enabled = false;
@@ -226,6 +239,14 @@ void Game::openPause() {
     item("Melee loadout", "Choose which melee moves are on X / B / A and LB + X / B / A", [this]() { openMelee(); });
     item("Move list", "All " + std::to_string(T.moves.size()) + " moves and how to unlock them", [this]() { openMoveList(); });
     item("Characters", "Switch monster", [this]() { openCharacterSelect(true); });
+    item("Infinity Stones", "Choose which stones to bring. Each one explains what it does.", [this]() { openInfinityStones(); }, std::to_string(save.infinity.size()) + "/" + std::to_string(kInfinityCount));
+    {
+      MenuItem sh; sh.label = "Shiny chance"; sh.right = std::to_string(save.eggs) + " eggs";
+      sh.desc = save.eggs >= kShinyEggCost ? kShinyOddsLine : std::string(kShinyOddsLine) + " Need 10 eggs (have " + std::to_string(save.eggs) + ").";
+      sh.enabled = save.eggs >= kShinyEggCost;
+      sh.act = [this]() { tryShiny(kaiju.def().id); };
+      mm.items.push_back(sh);
+    }
     if (!adventure) {
       MenuItem pol; pol.label = "Police"; pol.right = save.settings.police ? "ON" : "OFF";  // sandbox only; default OFF (Settings::police)
       pol.desc = "Sandbox police (default OFF). ON: wanted stars bring cars, a helicopter, tanks and a nuke countdown (pay " + std::to_string((int)C.nukeCancelCost) + " coins to cancel). OFF: no police, no sirens, no wanted stars.";
@@ -341,12 +362,12 @@ void Game::openCharacterSelect(bool fromPause) {
   Menu m; m.title = "CHARACTERS"; m.kind = 3;
   m.index = std::max(0, T.monsterIndex(save.monster));
   m.build = [this, fromPause](Menu& mm) {
-    mm.body = std::to_string(save.monsters.size()) + "/" + std::to_string(T.monsters.size()) + " monsters. Hatch more in Adventure mode!";
+    mm.body = std::to_string(save.monsters.size()) + "/" + std::to_string(T.monsters.size()) + " monsters. Hatch more in Adventure mode!\nEggs: " + std::to_string(save.eggs) + ". " + kShinyOddsLine;
     for (int i = 0; i < (int)T.monsters.size(); i++) {
       const MonsterDef& md = T.monsters[i]; bool has = crazy || save.monsters.count(md.id) > 0;  // Crazy: every hero is playable
       MenuItem it; it.label = has ? md.name : "???"; it.right = md.id == save.monster ? "PLAYING" : (has ? "" : "locked");
       if (has && hasLook(md.id)) { KaijuLook lk = lookOf(md.id); const RarityDef& rd = E.rarity(lk.rarity);
-        it.right = (md.id == save.monster ? "PLAYING  " : "") + rd.name + (lk.finish ? std::string(" ") + E.finishes[lk.finish - 1].name : std::string()); }
+        it.right = (md.id == save.monster ? "PLAYING  " : "") + rd.name + (lk.finish ? std::string(" ") + E.finishes[lk.finish - 1].name : std::string()) + (lk.shiny ? " SHINY" : ""); }
       it.desc = has ? md.desc + "\n" + planName(md.plan) + "  speed x" + fmt1(md.speed) + "  HP x" + fmt1(md.hp) + "  melee x" + fmt1(md.melee) + "  power x" + fmt1(md.power)
                     : std::string("A mystery monster. Hatch it from an egg in Adventure mode.");
       it.enabled = has;
@@ -354,6 +375,18 @@ void Game::openCharacterSelect(bool fromPause) {
       mm.items.push_back(it);
     }
     MenuItem b; b.label = "Back"; b.act = [this]() { popMenu(); }; mm.items.push_back(b);
+    MenuItem sh; sh.label = "Spend 10 eggs for a shiny"; sh.desc = kShinyOddsLine; sh.right = std::to_string(save.eggs) + " eggs";
+    int sel = std::max(0, std::min(mm.index, (int)mm.items.size()));
+    bool own = sel < (int)T.monsters.size() && (crazy || save.monsters.count(T.monsters[(size_t)sel].id));
+    sh.enabled = own && save.eggs >= kShinyEggCost;
+    if (save.eggs < kShinyEggCost) sh.desc = std::string(kShinyOddsLine) + " Need 10 eggs (have " + std::to_string(save.eggs) + ").";
+    else if (!own) sh.desc = std::string(kShinyOddsLine) + " Pick a hero you own first.";
+    sh.act = [this]() {
+      const Menu& cur = menus.back();
+      if (cur.index < 0 || cur.index >= (int)T.monsters.size()) { toast("Pick a hero you own first"); play(SND_error); return; }
+      tryShiny(T.monsters[(size_t)cur.index].id);
+    };
+    mm.items.insert(mm.items.end() - 1, sh);
   };
   pushMenu(m);
 }
@@ -459,6 +492,82 @@ void Game::updateMenus(const InputState& in, float dt) {
   if (back && !m.noBack) { auto ob = m.onBack; play(SND_back); if (ob) ob(); else popMenu(); }
 }
 
+// Modern title screen: logo + short tagline on the left over soft scrims (the 3D city stays visible), flat highlight rows,
+// the focused item's description in a card at the bottom-left, key hints bottom-right. Same Menu data / mouse layout as before.
+void Game::drawMainMenu(UIDraw& u, Menu& m) {
+  float s = u.s, W = u.W, H = u.H;
+  float an = menuAnim(m);
+  Color ink = style::text(), dim = style::textDim();
+  // scrims: darken the left for legibility, a soft band at the bottom and a faint one on top
+  style::gradH(u, 0, 0, W * 0.64f, H, Color{0.02f, 0.03f, 0.06f, 0.82f * an}, Color{0.02f, 0.03f, 0.06f, 0.0f});
+  style::gradV(u, 0, H * 0.80f, W, H * 0.20f, Color{0, 0, 0, 0.0f}, Color{0, 0, 0, 0.55f * an});
+  style::gradV(u, 0, 0, W, H * 0.12f, Color{0, 0, 0, 0.40f * an}, Color{0, 0, 0, 0.0f});
+  float colW = std::min(W * 0.42f, 190 * s), colX = std::max(22 * s, W * 0.06f) - (1 - an) * 28 * s;
+  // logo
+  std::string big = m.title, sub;
+  size_t sp = big.find(' '); if (sp != std::string::npos) { sub = big.substr(sp + 1); big = big.substr(0, sp); }
+  u.chunky = true;   // logo in the Bold weight
+  float bigS = std::min(s * 2.1f, colW / std::max(1.f, u.textW(big, 1.f)));
+  float y = std::max(14 * s, H * 0.06f);
+  u.text(colX, y, big, bigS, ink, true); y += u.lineH(bigS) + 1 * s; u.chunky = false;
+  std::string spaced; for (size_t i = 0; i < sub.size(); i++) { spaced += sub[i]; if (i + 1 < sub.size()) spaced += ' '; }
+  float subS = std::min(s * 0.95f, colW / std::max(1.f, u.textW(spaced, 1.f)));
+  u.text(colX + 2 * s, y, spaced, subS, style::cyan(), true); y += u.lineH(subS) + 6 * s;
+  style::roundRect(u, colX + 2 * s, y, 44 * s, std::max(2.f, 2.5f * s), 1.5f * s, style::accent()); y += 12 * s;
+  // tagline (first paragraph of the body); the second paragraph (save slot) becomes a pill at the top right
+  std::string tag = m.body, slotLine; size_t nl = tag.find('\n');
+  if (nl != std::string::npos) { slotLine = tag.substr(nl + 1); tag = tag.substr(0, nl); }
+  float bodyS = s * 0.75f, itemS = s * 0.9f;
+  for (auto& l : u.wrap(tag, std::min(W * 0.5f, 240 * s), bodyS)) { u.text(colX + 2 * s, y, l, bodyS, dim, true); y += u.lineH(bodyS); }
+  y += 10 * s;
+  if (!slotLine.empty()) {
+    if (slotLine.rfind("Playing in ", 0) == 0) slotLine = slotLine.substr(11);
+    if (!slotLine.empty() && slotLine.back() == '.') slotLine.pop_back();
+    float pw = u.textW(slotLine, bodyS) + 20 * s, ph = u.lineH(bodyS) + 10 * s, px = W - pw - 22 * s, py = 16 * s;
+    style::roundRect(u, px, py, pw, ph, ph / 2, Color{0.05f, 0.07f, 0.10f, 0.75f * an});
+    u.text(px + 10 * s, py + 5 * s, slotLine, bodyS, ink, false);
+  }
+  // description card for the focused item (reserved at the bottom so the rows never run into it)
+  const MenuItem* sel = m.items.empty() ? nullptr : &m.items[std::max(0, std::min((int)m.items.size() - 1, m.index))];
+  float cardW = std::min(W * 0.55f, 285 * s);
+  std::vector<std::string> desc = sel ? u.wrap(sel->desc, cardW - 20 * s, bodyS) : std::vector<std::string>();
+  float cardH = std::max<size_t>(desc.size(), 2) * u.lineH(bodyS) + 16 * s, cardY = H - cardH - 16 * s;
+  float reserveY = H - (4 * u.lineH(bodyS) + 16 * s) - 16 * s;   // rows always leave room for a 4-line card, so the list never jumps while you move
+  // rows
+  float itemH = u.lineH(itemS) + 7 * s;
+  int rows = std::max(3, (int)((reserveY - 6 * s - y) / itemH)); rows = std::min(rows, (int)m.items.size());
+  if (m.index < m.scroll) m.scroll = m.index;
+  if (m.index >= m.scroll + rows) m.scroll = m.index - rows + 1;
+  m.scroll = std::max(0, std::min(m.scroll, (int)m.items.size() - rows));
+  float rx = colX - 8 * s, rw = colW + 16 * s;
+  menuLayout = {rx, y, rw, itemH, m.scroll, rows};
+  for (int r = 0; r < rows; r++) {
+    int i = m.scroll + r; const MenuItem& it = m.items[i]; bool on = i == m.index;
+    float slide = (1 - style::easeOut((an * 1.25f - r * 0.07f) / 0.8f)) * 36 * s; if (save.settings.reducedMotion) slide = 0;
+    style::BtnState bs = on ? ((menuPressT > 0 && it.enabled) ? style::BTN_PRESSED : style::BTN_FOCUS) : !it.enabled ? style::BTN_DISABLED : style::BTN_NORMAL;
+    style::button(u, rx - slide, y, rw, itemH - 3 * s, "", bs, style::ROLE_SECONDARY, 1.f, itemS);
+    Color c = !it.enabled ? Color{0.50f, 0.53f, 0.60f, 1} : on ? Color{1, 1, 1, 1} : Color{0.84f, 0.88f, 0.94f, 1};
+    float ty = y + (itemH - 3 * s - u.lineH(itemS)) / 2 - 0.5f * s;
+    u.text(rx - slide + 14 * s + (on ? 3 * s : 0), ty, it.label, itemS, c, on);
+    if (!it.right.empty()) {
+      bool lockedTag = !it.enabled;
+      u.textR(rx - slide + rw - 12 * s, ty + 1.5f * s, it.right, itemS * 0.8f, lockedTag ? Color{0.62f, 0.55f, 0.40f, 1} : on ? style::accent() : dim, false);
+    }
+    y += itemH;
+  }
+  if ((int)m.items.size() > rows) u.text(colX + 2 * s, y, "more below", bodyS * 0.9f, dim, false);
+  // description card
+  if (sel && !desc.empty()) {
+    float ca = an;
+    style::roundRect(u, colX - 8 * s, cardY, cardW, cardH, 8 * s, Color{0.04f, 0.05f, 0.08f, 0.78f * ca});
+    style::roundRect(u, colX - 8 * s, cardY + 6 * s, std::max(2.f, 2.5f * s), cardH - 12 * s, 1.2f * s, style::cyan());
+    float dy = cardY + 8 * s; for (auto& l : desc) { u.text(colX + 6 * s, dy, l, bodyS, Color{0.90f, 0.93f, 0.97f, 1}, false); dy += u.lineH(bodyS); }
+  }
+  // footer
+  u.textR(W - 22 * s, H - u.lineH(bodyS) - 12 * s, "Up / Down  move     Enter  select     Esc  back", bodyS * 0.9f, Color{0.62f, 0.68f, 0.76f, 1}, false);
+  u.textR(W - 22 * s, H - 2 * u.lineH(bodyS) - 16 * s, "Tommy D Productions", bodyS * 0.9f, Color{0.45f, 0.52f, 0.60f, 1}, false);
+}
+
 void Game::drawMenus(RenderList& rl) {
   UIDraw u(rl); float s = u.s;
   menuLayout = MenuLayout();
@@ -467,16 +576,17 @@ void Game::drawMenus(RenderList& rl) {
   Menu& m = menus.back();
   if (m.build) { int idx = m.index; m.items.clear(); m.build(m); m.index = idx; }
   bool main = m.kind == 2, chars = m.kind == 3;
+  if (main) { drawMainMenu(u, m); return; }
   if (!main && !chars) u.rect(0, 0, u.W, u.H, Color{0, 0, 0, 0.45f * menuAnim(m)});
   if (m.cols > 0) { drawGridMenu(u, m); return; }
   if (m.kind == 10) { drawPowerSpin(u, m); return; }  // Vault: power spinner
   float pw = chars ? std::min(u.W * 0.46f, 250 * s) : std::min(u.W - 30, (m.wide ? 330.f : 290.f) * s);
   float px = chars ? 16 * s / 2 : (u.W - pw) / 2;
   float titleS = main ? std::min(s * 2.0f, (pw - 20) / (8 * (float)m.title.size())) : s * 1.4f, bodyS = s * 0.75f, itemS = s * 0.95f;
-  std::vector<std::string> body = u.wrap(m.body, pw - 16 * s / 2, bodyS);
+  std::vector<std::string> body = u.wrap(m.body, pw - 20 * s, bodyS);
   float itemH = u.lineH(itemS) + 5 * s;
   const MenuItem* sel = m.items.empty() ? nullptr : &m.items[std::max(0, std::min((int)m.items.size() - 1, m.index))];
-  std::vector<std::string> desc = sel ? u.wrap(sel->desc, pw - 16 * s / 2, bodyS) : std::vector<std::string>();
+  std::vector<std::string> desc = sel ? u.wrap(sel->desc, pw - 20 * s, bodyS) : std::vector<std::string>();
   bool ctl = m.kind == 9; if (ctl) itemS = s * 0.8f;
   float headH = 8 * s + u.lineH(titleS) + 4 * s + body.size() * u.lineH(bodyS) + 6 * s + (ctl ? u.lineH(bodyS) + 2 * s : 0);
   itemH = u.lineH(itemS) + 5 * s;
@@ -519,7 +629,7 @@ void Game::drawMenus(RenderList& rl) {
     else if (!it.right.empty()) u.textR(px + pw - 8 * s / 2, y + 2.5f * s, it.right, itemS * 0.85f, on ? GOLD : GREY);
     y += itemH;
   }
-  if ((int)m.items.size() > rows) u.textR(px + pw - 6, py + 8 * s, std::to_string(m.index + 1) + "/" + std::to_string(m.items.size()), bodyS, GREY);
+  if ((int)m.items.size() > rows) u.textR(px + pw - (m.noBack ? 8 : 28) * s, py + 9 * s, std::to_string(m.index + 1) + "/" + std::to_string(m.items.size()), bodyS, GREY);
   y += 4 * s;
   u.rect(px + 8, y - 2 * s, pw - 16, std::max(1.f, s / 2), Color{0.35f, 0.3f, 0.5f, 1});
   for (auto& l : desc) { u.text(px + 8 * s / 2 + 4, y, l, bodyS, Color{0.9f, 0.88f, 0.75f, 1}); y += u.lineH(bodyS); }
@@ -627,7 +737,11 @@ std::string Game::levelHud() {
   }
   const LevelDef& L = T.levels[level.idx];
   std::string s = "L" + std::to_string(level.idx + 1) + " " + L.name + ": ";
-  if (level.bossPhase) return s + "knock out the " + (L.miniBoss == "mech" ? "MEGA MECH" : "GIANT SUPER-TANK") + "!";
+  if (level.bossPhase) {
+    const char* nm = bossDisplayName(bossIdFromName(AP().lastBoss.empty() ? L.miniBoss : AP().lastBoss));
+    if (Unit* mb = enemies.miniBoss()) nm = bossDisplayName(mb->boss);
+    return s + "knock out the " + nm + "!";
+  }
   switch (L.obj) {
     case ObjType::Smash: s += "smash " + std::string(L.filter == "oldtown" ? "Old Town " : "") + "buildings " + std::to_string(level.count) + "/" + std::to_string(L.count); break;
     case ObjType::Survive: s += "survive " + mmss(level.t) + (L.hasZone && dist2D(kaiju.pos.x, kaiju.pos.z, L.zx, L.zz) >= L.zr ? "  (get back in the park!)" : ""); break;
@@ -674,24 +788,36 @@ void Game::drawHud(RenderList& rl) {
   }
   if (mode == Mode::Reveal) { if (bigT > 0) goto big; return; }
   {
-    // top-left: coins and progress
-    style::roundRect(u, 6, 6, 150 * s, u.lineH(s) * 3.6f + 6 * s, 6 * s, style::bg());  // Vault
-    u.text(6 + 4 * s, 6 + 3 * s, "COINS " + std::to_string(p.coins) + "  KEYS " + std::to_string(p.keys), s, GOLD);
-    u.text(6 + 4 * s, 6 + 3 * s + u.lineH(s), "Eaten: " + std::to_string(p.eaten), s, needEatT > 0 && ((int)(realTime * 6)) % 2 ? RED : PEA);  // super-attack fuel (E)
-    float ly0 = 6 + 3 * s + u.lineH(s);
-    u.text(6 + 4 * s, ly0 + u.lineH(s), std::string(adventure ? (crazy ? "CRAZY" : "ADVENTURE") : "SANDBOX") + "  smashed " + std::to_string(p.smashCount) + "  rainbows " + std::to_string(p.rainbows), small, WHITE);
-    std::string line3 = kaiju.def().name;
-    if (!adventure && !p.schoolUnlocked) line3 += "  | school " + std::to_string(prog::schoolProgress(p)) + "/" + std::to_string((int)C.schoolUnlockCount) + " landmarks";
-    u.text(6 + 4 * s, ly0 + u.lineH(s) + u.lineH(small), line3, small, GREY);
-    // health bar
-    float bw = 150 * s, bh = 6 * s, bx = u.W / 2 - bw / 2, by = 6 * s;
+    // top-left: one compact status card (coins / keys / eaten, then the objective line and the kaiju name)
+    {
+      float pad = 8 * s, gap = 14 * s, x0 = 8 * s, y0 = 8 * s;
+      std::string sCoins = "COINS " + std::to_string(p.coins), sKeys = "KEYS " + std::to_string(p.keys), sEat = "EATEN " + std::to_string(p.eaten);
+      std::string l2 = std::string(adventure ? (crazy ? "CRAZY" : "ADVENTURE") : "SANDBOX") + "   smashed " + std::to_string(p.smashCount) + "   rainbows " + std::to_string(p.rainbows);
+      std::string l3 = kaiju.def().name + (lookOf(kaiju.def().id).shiny ? "   SHINY" : "");   // PR6: shiny tag
+      if (hasInfinity("mind")) l3 += "   facing " + std::to_string((int)(kaiju.facing * 180.f / PI)) + "   pace " + fmt1(kaiju.speedNow);   // PR6: Mind-stone readout
+      if (!adventure && !p.schoolUnlocked) l3 += "   school " + std::to_string(prog::schoolProgress(p)) + "/" + std::to_string((int)C.schoolUnlockCount) + " landmarks";
+      float w1 = u.textW(sCoins, s) + u.textW(sKeys, s) + u.textW(sEat, s) + 2 * gap;
+      float cw = std::max({w1, u.textW(l2, small), u.textW(l3, small)}) + 2 * pad, ch = u.lineH(s) + 2 * u.lineH(small) + 2 * pad + 2 * s;
+      style::roundRect(u, x0, y0, cw, ch, 10 * s, Color{0.04f, 0.05f, 0.08f, 0.72f});
+      style::roundRect(u, x0 + 4 * s, y0 + 8 * s, std::max(2.f, 2.5f * s), ch - 16 * s, 1.2f * s, uiAccent());
+      float tx = x0 + pad + 3 * s, ty = y0 + pad;
+      u.text(tx, ty, sCoins, s, GOLD); tx += u.textW(sCoins, s) + gap;
+      u.text(tx, ty, sKeys, s, CYAN); tx += u.textW(sKeys, s) + gap;
+      u.text(tx, ty, sEat, s, needEatT > 0 && ((int)(realTime * 6)) % 2 ? RED : PEA);  // super-attack fuel (E)
+      ty += u.lineH(s) + 2 * s;
+      u.text(x0 + pad + 3 * s, ty, l2, small, WHITE); ty += u.lineH(small);
+      u.text(x0 + pad + 3 * s, ty, l3, small, GREY);
+    }
+    // health bar: rounded pill, colour shifts green -> amber -> orange as it drops, outlined in the kaiju's accent colour
+    float bw = 170 * s, bh = 9 * s, bx = u.W / 2 - bw / 2, by = 8 * s;
     float k = clampf(kaiju.hp / std::max(1.f, kaiju.maxHp()), 0, 1);
-    u.rect(bx - 2, by - 2, bw + 4, bh + 4, Color{0, 0, 0, 0.6f});
-    Color hc = k > 0.5f ? mixColor(hexColor(0xffe03a), hexColor(0x4cd964), (k - 0.5f) * 2) : mixColor(hexColor(0xff9a1f), hexColor(0xffe03a), k * 2);
-    u.rect(bx, by, bw * k, bh, kaiju.hurtT > 0 ? WHITE : hc);
     Color acc = uiAccent();
-    u.frame(bx - 2, by - 2, bw + 4, bh + 4, acc, std::max(1.f, s / 2));  // frame in the kaiju's own accent colour
-    u.textR(bx - 4 * s, by - 2 * s, "HP", small, WHITE);
+    style::roundRect(u, bx - 2 * s, by - 2 * s, bw + 4 * s, bh + 4 * s, (bh + 4 * s) / 2, Color{acc.r, acc.g, acc.b, 0.55f});
+    style::roundRect(u, bx - 1 * s, by - 1 * s, bw + 2 * s, bh + 2 * s, (bh + 2 * s) / 2, Color{0.03f, 0.04f, 0.07f, 0.88f});
+    Color hc = k > 0.5f ? mixColor(hexColor(0xffe03a), hexColor(0x4cd964), (k - 0.5f) * 2) : mixColor(hexColor(0xff9a1f), hexColor(0xffe03a), k * 2);
+    if (k > 0) { float fw = std::max(bh, bw * k); style::roundRect(u, bx, by, fw, bh, bh / 2, kaiju.hurtT > 0 ? WHITE : hc);
+                 style::roundRect(u, bx + bh * 0.4f, by + 1 * s, std::max(0.f, fw - bh * 0.8f), std::max(1.f, bh * 0.25f), 0, Color{1, 1, 1, 0.22f}); }  // soft highlight
+    u.textR(bx - 8 * s, by - 1 * s, "HP", small, WHITE);
     float y = by + bh + 4 * s;
     if (hasLook(kaiju.def().id)) {  // XP / growth bar (accent colour)
       float g = growthFrac(), xb = bw * 0.8f, xx = u.W / 2 - xb / 2, xh = 3 * s;
@@ -711,7 +837,7 @@ void Game::drawHud(RenderList& rl) {
     }
     if (Unit* mb = enemies.miniBoss()) {  // level 11-14 boss bar
       float bw2 = 240 * s, bx2 = u.W / 2 - bw2 / 2, bh2 = 8 * s;
-      u.textC(u.W / 2, y, mb->boss == 2 ? "MEGA MECH" : "GIANT SUPER-TANK", s, hexColor(0xffb020)); y += u.lineH(s);
+      u.textC(u.W / 2, y, bossDisplayName(mb->boss), s, hexColor(0xffb020)); y += u.lineH(s);
       float kb = clampf(mb->hp / std::max(1.f, mb->maxHp), 0, 1);
       u.rect(bx2 - 2, y - 2, bw2 + 4, bh2 + 4, Color{0, 0, 0, 0.7f});
       u.rect(bx2, y, bw2 * kb, bh2, hexColor(0xff6a20));

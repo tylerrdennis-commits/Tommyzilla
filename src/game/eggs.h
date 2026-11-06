@@ -15,7 +15,21 @@ struct PaletteDef { std::string name; float weight = 1; Color primary, secondary
 struct FinishDef { std::string id, name; float rate = 0; Color color; };
 struct PassiveDef { std::string id, name, desc; };
 struct GateDef { std::string id; int level = 0; float x = 0, z = 0; std::string reward; int amount = 0; };  // level 0 = sandbox, else 1-based adventure level
-struct StoneDef { std::string id, name; Color color; int level = 0; float x = 0, z = 0; };              // stone gate on that (1-based) level
+// One thing a stone can be assigned to. channel is pulse / strike / blast / roar.
+// bricks / radius scale that action, extra adds buildings to the walk pulse, heal runs when a super fires.
+struct StonePower {
+  std::string id, name, blurb, channel;
+  float bricks = 1, radius = 1, heal = 0;
+  int extra = 0;
+  bool people = false, zap = false;
+};
+struct StoneDef {  // stone gate on that (1-based) level; powers are assigned in the Infinity Stones menu
+  std::string id, name, blurb;
+  Color color;
+  int level = 0;
+  float x = 0, z = 0;
+  std::vector<StonePower> powers;
+};
 struct EggTables {
   std::vector<RarityDef> rarities;
   std::map<std::string, int> tierOf;                       // monster id -> rarity index
@@ -46,8 +60,24 @@ struct InputState;
 bool zooGulpPressed(const InputState& in);  // Rex: eat / claw / grab / confirm all gulp the zookeeper
 std::string loadEggData(const std::string& json);  // "" ok; uses the embedded copy when json is empty
 
+constexpr int kShinyEggCost = 10;   // eggs spent per shiny attempt
+constexpr int kShinyOdds = 10;       // 1 in 10
+inline constexpr const char* kShinyOddsLine = "Spend 10 eggs for a 1 in 10 chance at a shiny. This is a chance, not a guarantee.";
+struct ShinyRoll { bool spent = false; bool hit = false; };
+struct InfinityStoneDef { const char* id; const char* name; const char* what; };
+inline constexpr InfinityStoneDef kInfinityStones[] = {
+    {"space", "Space", "Each step covers more ground."},
+    {"mind", "Mind", "Shows facing and pace on screen."},
+    {"reality", "Reality", "Recolors the hero while equipped."},
+    {"power", "Power", "Swells the hero's size for the run."},
+    {"time", "Time", "Slows enemies, easing the fight."},
+    {"soul", "Soul", "An aura that follows the hero."},
+};
+inline constexpr int kInfinityCount = 6;
+
 struct KaijuLook {
   std::string monster; int rarity = 0; int palette = 0; Color primary, secondary, accent, eyes; int finish = FIN_NONE;
+  bool shiny = false;  // hue-flipped palette + gold spark; a missed egg roll never clears it
   std::vector<std::string> passives; std::string bonusSuper;
   uint32_t genSeed = 0; int element = -1;  // Rex: procedural body seed (0 = classic model); Tommyzilla legendary element (-1 none, see kaiju_gen.h)
   bool has(const std::string& passive) const { for (auto& p : passives) if (p == passive) return true; return false; }
@@ -63,6 +93,7 @@ std::string rollSpecies(Rng& r, const Tables& t, int* rarityOut = nullptr);
 int rollFinish(Rng& r, float mult = 1);                         // independent chances, rarest first
 KaijuLook defaultLook(const MonsterDef& m);                     // classic palette, no finish (legacy saves)
 KaijuLook rollLook(Rng& r, const std::string& monster, const Tables& t);  // palette mix + finish + perks of its tier
+ShinyRoll rollShiny(int& eggs, Rng& r);  // spends kShinyEggCost when eggs allow it; hit is a 1-in-kShinyOdds roll
 float growthFrac(float xp);                                     // 0..1
 float growthScale(float xp);                                    // hatchling start .. 1 (cap)
 }  // namespace eggs

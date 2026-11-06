@@ -20,6 +20,8 @@ float pressScale(BtnState s, float sincePress, bool reducedMotion);      // 1.0,
 // drawing
 void roundRect(UIDraw& u, float x, float y, float w, float h, float r, Color c);
 void glow(UIDraw& u, float x, float y, float w, float h, float r, Color c, float spread);
+void gradV(UIDraw& u, float x, float y, float w, float h, Color top, Color bottom);
+void gradH(UIDraw& u, float x, float y, float w, float h, Color left, Color right);
 void panel(UIDraw& u, float x, float y, float w, float h, bool primary = false);
 void button(UIDraw& u, float x, float y, float w, float h, const std::string& label, BtnState st, BtnRole role, float scale, float textS);
 void titleText(UIDraw& u, float cx, float y, const std::string& t, float scale, Color c);  // chunky display title

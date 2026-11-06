@@ -42,6 +42,8 @@ struct Profile {
   // gauntlet arc (adventure / crazy; sandbox gets it from the Crazy ending)
   bool gauntletSlot = false, gauntlet = false, gauntletOn = false, gauntletCracked = false, endingDone = false;
   std::vector<std::string> stones;                 // stone ids in the gauntlet, in pickup order
+  std::string lastBoss;                            // last end-of-level boss id; the next fight will not repeat it
+  std::string stoneBind[4];                        // power map: "stoneId:powerId" for pulse, strike, blast, roar
   void reset();
   Json toJson() const;
   void fromJson(const Json& j);
@@ -66,6 +68,8 @@ struct SaveData {
   bool spinSlot = false;                            // slot made with the egg spinner (new games: zoo opening per mode)
   bool zooCompleted = false;                        // the zoo opening was finished (gulp) at least once in this slot
   int version = 3;                                  // 3 = 20-level campaign (2 = 15 levels, migrated on load)
+  int eggs = 30;                                    // spent 10 at a time for a 1-in-10 shiny chance
+  std::set<std::string> infinity;                   // Infinity Stones the player chose to bring (space, mind, reality, power, time, soul)
   void reset();
   Json toJson() const;
   bool fromJson(const Json& j);
@@ -78,6 +82,7 @@ float rangeMult(int lvl);
 float speedMult(int lvl);                 // 1.0 .. 2.0 in 5 steps
 int upgradeCost(int lvl);                 // cost to buy the next level, -1 if maxed
 int maxLevel();
+std::string bossAfter(const std::string& requested, const std::string& previous);  // never returns previous when another boss exists
 // returns 0 = bought, 1 = not enough coins, 2 = maxed
 int buyUpgrade(Profile& p, Upgrade u);
 bool moveConditionMet(const MoveDef& m, const Profile& p);

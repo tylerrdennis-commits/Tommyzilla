@@ -42,5 +42,6 @@ struct ModelCatalog {
   virtual int find(const std::string& id) = 0;                   // -1: no model -> draw the primitive rig
   virtual int variant(int asset, const std::string& name) = 0;   // 0 = base look (also for unknown names)
   virtual bool bounds(int asset, Vec3& lo, Vec3& hi) = 0;        // entity-space rest bounds (after the manifest offset)
+  virtual bool hasDistinctRun(int /*asset*/) { return true; }    // false: the model has no Run clip of its own (a run is a faster Walk)
 };
 }  // namespace tz

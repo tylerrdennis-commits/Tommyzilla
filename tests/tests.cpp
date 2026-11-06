@@ -394,7 +394,7 @@ static void testAdventure() {
   { Json j; CHECK(Json::parse(saved, j) && (int)j["monsters"].size() == NM); }
   // all unlocked monsters are selectable in sandbox
   g->menus.clear(); g->startMode(false); g->openCharacterSelect(true);
-  int enabled = 0; g->updateMenus(InputState(), 0.016f); for (auto& it : g->menus.back().items) enabled += it.enabled && it.label != "Back";
+  int enabled = 0; g->updateMenus(InputState(), 0.016f); for (auto& it : g->menus.back().items) enabled += it.enabled && it.label != "Back" && it.label.find("shiny") == std::string::npos;
   CHECK(enabled == NM);
   // a reloaded save keeps everything
   auto g2 = std::make_unique<Game>(); g2->init(&saved);
@@ -944,6 +944,20 @@ static void testModelHooks() {
   // the walk clip + an attack (trigger bumps each attack)
   InputState walk; walk.moveY = 1; run(*g, 0.6f, walk); g->frame(1.f / 60, walk);
   rl = renderOnce(*g); k = cat.byKey(rl, modelKey(MK_KAIJU, 0)); CHECK(k && (k->clip == MC_WALK || k->clip == MC_RUN));
+  {  // foot-matched gait: a speed boost is still a WALK; Shift is a RUN; playback follows ground speed, size and the model's own height
+    Kaiju& K = g->kaiju; InputState w; w.moveY = 1; run(*g, 1.0f, w);
+    float H = 1.f; { Vec3 lo, hi; if (cat.bounds(0, lo, hi) && hi.y > lo.y) H = hi.y - lo.y; }   // the fake model is 1 unit tall: scale the kaiju up so walking speeds clear the idle threshold
+    K.shrinkK = 16.f;
+    float sc = K.scale() * K.shrinkK, walkNat = 1.10f * H * sc, runNat = 3.18f * H * sc;
+    K.sprinting = false; K.animRun = false; K.speedNow = 1.3f * walkNat;
+    rl = renderOnce(*g); k = cat.byKey(rl, modelKey(MK_KAIJU, 0)); CHECK(k && k->clip == MC_WALK && std::fabs(k->speed - 1.3f) < 0.01f);
+    InputState sp; sp.moveY = 1; sp.held[A_SPRINT] = true; run(*g, 0.3f, sp);
+    CHECK(K.sprinting); K.speedNow = 2.5f * walkNat;
+    rl = renderOnce(*g); k = cat.byKey(rl, modelKey(MK_KAIJU, 0)); CHECK(k && k->clip == MC_RUN && std::fabs(k->speed - clampf(K.speedNow / runNat, 0.5f, 2.2f)) < 0.01f);
+    K.sprinting = false; K.animRun = false; K.shrinkK = 6.4f; K.speedNow = 3.f * 1.10f * H * K.scale() * K.shrinkK;   // a tiny hatchling at that pace would look like a hovercraft on the walk clip
+    rl = renderOnce(*g); k = cat.byKey(rl, modelKey(MK_KAIJU, 0)); CHECK(k && k->clip == MC_RUN);
+    K.shrinkK = 1.f; run(*g, 0.3f);
+  }
   uint16_t s0 = g->kaiju.attackSeq; tap(*g, A_CLAW); run(*g, 0.05f);
   rl = renderOnce(*g); k = cat.byKey(rl, modelKey(MK_KAIJU, 0));
   CHECK(g->kaiju.attackSeq == (uint16_t)(s0 + 1) && k && k->clip == MC_ATTACK && !k->loop && k->trigger == g->kaiju.attackSeq && k->fit > 0);
@@ -1384,6 +1398,33 @@ static void testGauntletArc() {
   CHECK(sb->gloveEquipped() && sb->glovePulse() == 0);
   SP.stones = {"storm", "tide", "grove"}; CHECK(sb->glovePulse() == E.pulseTargets[3]);
   SP.stones = {"storm", "tide", "grove", "ember", "sun", "spark"}; CHECK(sb->glovePulse() == 10);
+  // Infinity Stones: pick a stone and map each of its powers onto a different action
+  for (auto& s : E.stones) { CHECK(s.powers.size() >= 2 && s.blurb.size() > 16); for (auto& pw : s.powers) CHECK(pw.blurb.size() > 24 && !pw.name.empty() && !pw.channel.empty()); }
+  SP.stones = {"storm"};
+  CHECK(sb->assignStonePower(0, "storm", "thunder") && sb->P().stoneBind[0] == "storm:thunder");
+  CHECK(!sb->assignStonePower(1, "storm", "thunder"));  // Thunder Step is a pulse power, not a strike
+  CHECK(!sb->assignStonePower(2, "tide", "bolt"));      // Tide isn't owned
+  CHECK(sb->glovePulse() == E.pulseTargets[1] + 2);     // pulse count plus Thunder Step's extra buildings
+  SP.stones.push_back("ember");
+  float claw = sb->kaiju.moveBricks(T.moves[(size_t)T.moveIndex("claw")]);
+  CHECK(sb->assignStonePower(1, "ember", "cinder"));
+  float claw2 = sb->kaiju.moveBricks(T.moves[(size_t)T.moveIndex("claw")]);
+  CHECK(claw2 > claw * 1.25f && claw2 < claw * 1.35f);
+  { Json j = sb->save.toJson(); SaveData r; CHECK(r.fromJson(j) && r.sandbox.stoneBind[0] == "storm:thunder" && r.sandbox.stoneBind[1] == "ember:cinder"); }
+  sb->menus.clear(); sb->openSkills(); sb->updateMenus(InputState(), 0.016f);
+  bool opened = false;
+  for (auto& it : sb->menus.back().items) if (it.label == "Infinity Stones" && it.enabled && it.desc.find("Pulse") != std::string::npos) { opened = true; it.act(); }
+  CHECK(opened);
+  sb->updateMenus(InputState(), 0.016f);
+  CHECK(sb->menus.back().title == "INFINITY STONES");
+  for (auto& it : sb->menus.back().items) if (it.label == "Storm Stone") it.act();
+  sb->updateMenus(InputState(), 0.016f);
+  CHECK(sb->menus.back().title == "Storm Stone");
+  int explained = 0;
+  for (auto& it : sb->menus.back().items) if (it.desc.find("Pulse") != std::string::npos || it.desc.find("Blast") != std::string::npos) explained++;
+  CHECK(explained >= 2);
+  CHECK(sb->assignStonePower(0, "", "")); CHECK(sb->P().stoneBind[0].empty());
+  SP.stones = {"storm", "tide", "grove", "ember", "sun", "spark"}; sb->menus.clear();
   InputState w; w.moveY = 1; int p0 = sb->glovePulses; run(*sb, 1.5f, w); CHECK(sb->glovePulses > p0);  // pulses while moving
   int p1 = sb->glovePulses; run(*sb, 3); CHECK(sb->glovePulses == p1);
   SP.gauntletOn = false; CHECK(!sb->gloveEquipped());
@@ -2220,13 +2261,66 @@ static void testZooGateQuest() {
   if (Unit* mb = s->enemies.miniBoss()) s->enemies.wreckUnit(*mb); run(*s, 0.5f);
   CHECK(s->level.won && !s->level.active && s->AP().levelsWon >= 14);
 }
+static void testVersionNotes() {
+  SECTION("names match meshes, 16 models, shiny eggs, infinity stones, boss variety");
+  auto nm = [](const char* id) { return T.monsters[(size_t)T.monsterIndex(id)].name; };
+  CHECK(nm("tommyzilla") == "Tommyzilla" && T.monsters[0].desc.find("dinosaur") != std::string::npos);
+  CHECK(nm("mossback") == "Yeti");
+  CHECK(nm("sparkleraptor") == "Sparkle Dragon");
+  CHECK(nm("hootzooka") == "Birb");
+  CHECK(nm("bonkbeak") == "Pigeon");
+  CHECK(nm("noodlewyrm") == "Dragon");
+  CHECK(nm("wobblewump") == "Mushroom King");
+  CHECK(nm("thunderhorn") == "Thunder Demon");
+  CHECK(nm("roborumble") == "Fox Mech");
+  CHECK(nm("clanksworth") == "Bee Mech");
+  CHECK(nm("stompasaurus") == "Blue Demon");
+  CHECK(nm("pinchington") == "Block Kid");
+  CHECK(nm("gloopzilla") == "Gloopzilla");
+  CHECK(std::string(kShinyOddsLine).find("1 in 10") != std::string::npos && std::string(kShinyOddsLine).find("10 eggs") != std::string::npos);
+  CHECK(kInfinityCount == 6);
+  for (const InfinityStoneDef& s : kInfinityStones) CHECK(s.what && std::string(s.what).size() > 8);
+  int eggs = 9; ShinyRoll low = eggs::rollShiny(eggs, tmpRng(1)); CHECK(!low.spent && !low.hit && eggs == 9);
+  int hits = 0, misses = 0;
+  for (int seed = 1; seed < 400 && (hits == 0 || misses == 0); seed++) {
+    int e = 25; bool before = e >= 10; ShinyRoll r = eggs::rollShiny(e, tmpRng((uint64_t)seed));
+    CHECK(r.spent && e == 15 && before);
+    hits += r.hit; misses += !r.hit;
+  }
+  CHECK(hits > 0 && misses > 0);
+  SaveData fresh; CHECK(fresh.eggs == 30);
+  Json saved = fresh.toJson(); saved.obj.erase("eggs"); SaveData old; CHECK(old.fromJson(saved) && old.eggs == 30);
+  fresh.eggs = 4; Json kept = fresh.toJson(); SaveData back; CHECK(back.fromJson(kept) && back.eggs == 4);
+  auto g = newGame();
+  g->save.eggs = 4; g->openCharacterSelect(false); g->updateMenus(InputState(), 0.016f);
+  bool odds = g->menus.back().body.find("1 in 10") != std::string::npos && g->menus.back().body.find("not a guarantee") != std::string::npos;
+  bool disabled = false; for (auto& it : g->menus.back().items) if (it.label.find("shiny") != std::string::npos) disabled = !it.enabled && it.desc.find("have 4") != std::string::npos;
+  CHECK(odds && disabled);
+  g->save.eggs = 30; CHECK(g->tryShiny("tommyzilla") && g->save.eggs == 20);
+  g->save.looks["tommyzilla"].shiny = true; int left = g->save.eggs;
+  // a miss must not clear a shiny already earned
+  for (int i = 0; i < 30 && g->save.eggs >= 10; i++) g->tryShiny("tommyzilla");
+  CHECK(g->save.looks["tommyzilla"].shiny && g->save.eggs < left);
+  g->menus.clear(); g->openInfinityStones(); g->updateMenus(InputState(), 0.016f);
+  CHECK((int)g->menus.back().items.size() == kInfinityCount + 1);
+  bool explained = true; for (int i = 0; i < kInfinityCount; i++) explained &= g->menus.back().items[(size_t)i].desc == kInfinityStones[i].what;
+  CHECK(explained);
+  g->menus.back().index = 0; tap(*g, A_CONFIRM); CHECK(g->save.infinity.count("space") == 1);
+  tap(*g, A_CONFIRM); CHECK(g->save.infinity.count("space") == 0);
+  std::string prev;
+  int bosses = 0; std::set<std::string> kinds;
+  for (auto& L : T.levels) if (!L.miniBoss.empty()) { CHECK(L.miniBoss != prev); prev = L.miniBoss; kinds.insert(L.miniBoss); bosses++; }
+  CHECK(bosses >= 8 && kinds.size() == 5);
+  CHECK(prog::bossAfter("mech", "mech") != "mech" && prog::bossAfter("crab", "mech") == "crab");
+  CHECK(T.levels[10].miniBoss == "supertank" && T.levels[11].miniBoss == "mech");
+}
 int main() {
   loadData();
   if (const char* only = std::getenv("TZ_ONLY")) {  // quick subset runs while developing: TZ_ONLY=bulk|arc|zoo|ending|...
     std::string o = only;
     if (o == "eggs") testEggTables(); if (o == "spin") testSpinner(); if (o == "growth") testGrowthAndXp(); if (o == "finish") testFinishRender();
     if (o == "ladder") testEnemyLadder(); if (o == "deevo") testDeevo(); if (o == "zoo") testZooAndKey(); if (o == "eat1") testOneButtonEat(); if (o == "siren") testSirenStops(); if (o == "split") testSplitScreen(); if (o == "cam") { testAdventureCamera(); testZooCageBlocks(); } if (o == "arc") testGauntletArc(); if (o == "oldtown") testOldTownQuest(); if (o == "zoogate") testZooGateQuest();
-    if (o == "bulk") testBulkStages(); if (o == "ending") testCreditsAndEnding(); if (o == "wren") testWrenWiring(); if (o == "adventure") testAdventure(); if (o == "police") testSandboxPoliceToggle(); if (o == "controls") testControlsMapping(); if (o == "store") testStoreGrid(); if (o == "ground") testGroundTextures(); if (o == "shader") testShaderKeywords();
+    if (o == "bulk") testBulkStages(); if (o == "ending") testCreditsAndEnding(); if (o == "wren") testWrenWiring(); if (o == "adventure") testAdventure(); if (o == "police") testSandboxPoliceToggle(); if (o == "controls") testControlsMapping(); if (o == "store") testStoreGrid(); if (o == "ground") testGroundTextures(); if (o == "shader") testShaderKeywords(); if (o == "notes") testVersionNotes();
     std::printf("\n%d passed, %d failed\n", gPass, gFail); return gFail ? 1 : 0;
   }
   testData(); testKaijuGen(); testRexPlay(); testUnlocks(); testEconomy(); testPolice(); testTitan(); testTitanGame(); testCampaign(); testSave(); testSynthAndMeshes();
@@ -2235,7 +2329,7 @@ int main() {
   testSkillSlots(); testSaveSlots(); testAdventureChoice(); testCrazy(); testPoliceAudioAndMovement(); testIntro();
   testEatFuel(); testRoster(); testLevel5Chests(); testProceduralCity(); testHiddenStones(); testChampionPick(); testDifficultyCurve();
   testModelHooks(); testSandboxPoliceToggle(); testControlsMapping(); testStoreGrid(); testGroundTextures(); testShaderKeywords();
-  testEggTables(); testSpinner(); testGrowthAndXp(); testFinishRender(); testEnemyLadder(); testDeevo(); testZooAndKey(); testOneButtonEat(); testAdventureCamera(); testZooCageBlocks(); testSirenStops(); testSplitScreen(); testGauntletArc(); testOldTownQuest(); testZooGateQuest(); testBulkStages(); testCreditsAndEnding(); testWrenWiring();
+  testEggTables(); testSpinner(); testGrowthAndXp(); testFinishRender(); testEnemyLadder(); testDeevo(); testZooAndKey(); testOneButtonEat(); testAdventureCamera(); testZooCageBlocks(); testSirenStops(); testSplitScreen(); testGauntletArc(); testOldTownQuest(); testZooGateQuest(); testBulkStages(); testCreditsAndEnding(); testWrenWiring(); testVersionNotes();
   std::printf("\n%d passed, %d failed\n", gPass, gFail);
   return gFail ? 1 : 0;
 }

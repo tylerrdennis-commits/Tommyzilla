@@ -54,6 +54,7 @@ bool Game::tryPickStone() {
   if (std::find(p.stones.begin(), p.stones.end(), s.id) == p.stones.end()) p.stones.push_back(s.id);
   level.stoneTaken = true;
   bigMessage("THE " + s.name + "!", std::to_string(p.stones.size()) + " / 6 in the gauntlet");
+  toast(s.name + " — open Skills, Infinity Stones, and assign its powers. " + s.blurb);
   play(SND_fanfare); flashT = 0.3f; fx->shell(level.stonePos + Vec3(0, 4, 0), 18, 1, s.color); fx->rainbowBurst(kaiju.hand(), 2);
   persist();
   return true;
@@ -139,8 +140,10 @@ void Game::finishSnap() {
     save.crazy.endingDone = true;
     Profile& s = save.sandbox; s.gauntletSlot = true; s.gauntlet = true; s.gauntletOn = true; s.gauntletCracked = false;
     s.stones.clear(); for (auto& st : E.stones) s.stones.push_back(st.id);
+    for (int i = 0; i < 4; i++) s.stoneBind[i] = save.crazy.stoneBind[i];
   } else {
     Profile& a = save.adventure; a.stones.clear(); a.gauntlet = false; a.gauntletOn = false; a.gauntletCracked = true; a.endingDone = true;
+    for (int i = 0; i < 4; i++) a.stoneBind[i].clear();
   }
   persist();
 }

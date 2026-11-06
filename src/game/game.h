@@ -224,7 +224,7 @@ struct Camera { float yaw = 0, pitch = 0.32f, dist = 34, idle = 99, shake = 0; V
 struct Kaiju {
   int monster = 0; Vec3 pos; float facing = PI, twist = 0, lift = 0, hp = 100, hurtT = 0;
   Attack at; std::vector<float> cooldowns; bool charging = false; float charge = 0; int chargeSlot = -1; Action chargeBtn = A_SLOT1;
-  int held = -1; float walkPhase = 0, speedNow = 0; bool inWater = false; Camera cam;
+  int held = -1; float walkPhase = 0, speedNow = 0; bool sprinting = false, animRun = false; bool inWater = false; Camera cam;
   int player = 0;  // 0 = P1, 1 = P2 (travels with the object through the co-op swaps; keys its model animator)
   std::vector<Projectile> projectiles; float spawnGlow = 0;
   std::vector<Bolt> bolts; std::vector<EatTween> eats; float gloveDist = 0; Vec3 gloveLast;
@@ -483,12 +483,16 @@ struct Game {
   void openMelee();
   void openMoveList();
   void openCharacterSelect(bool fromPause);
+  void openInfinityStones();
+  bool tryShiny(const std::string& id);          // spend 10 eggs for a 1-in-10 shiny; false if it could not spend
+  bool hasInfinity(const char* id) const { return save.infinity.count(id) != 0; }
   void openOptions();
   void openSkills();
   void openControls();
   void prompt(const std::string& title, const std::string& body, std::vector<MenuItem> items, bool noBack = true);
   void updateMenus(const InputState& in, float dt);
   void drawMenus(RenderList& rl);
+  void drawMainMenu(UIDraw& u, Menu& m);  // modern left-aligned title screen
   void drawGridMenu(UIDraw& u, Menu& m);  // store icon grid (Menu::cols > 0)
   void drawHud(RenderList& rl);
   // Vault: menu style + bottom HUD bar (src/ui/ui_style.*, src/ui/hud_bar.*)
@@ -563,6 +567,16 @@ struct Game {
   bool gauntletReady() const;                             // gauntlet owned + equipped (gauntlet slot)
   int stoneCount() const;
   void equipGauntlet(bool on);
+  // Infinity Stones: pick an owned stone and assign each of its powers to a different action
+  // (0 pulse, 1 strike, 2 blast, 3 roar). Empty powerId clears that action.
+  bool assignStonePower(int channel, const std::string& stoneId, const std::string& powerId);
+  bool stonePowerOn(int channel, StonePower& out) const;  // equipped gauntlet + owned stone + a matching bind
+  float stoneBrickMul(int moveKind) const;
+  float stoneRangeMul(int moveKind) const;
+  void onSuperFired();
+  std::string stoneBindSummary() const;
+  void openStoneMenu();
+  void openStonePowers(int stoneIndex);
   void setupArcLevel(const LevelDef& L);
   void updateArc(float dt);
   void renderArc(RenderList& rl);
