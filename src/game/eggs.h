@@ -15,7 +15,21 @@ struct PaletteDef { std::string name; float weight = 1; Color primary, secondary
 struct FinishDef { std::string id, name; float rate = 0; Color color; };
 struct PassiveDef { std::string id, name, desc; };
 struct GateDef { std::string id; int level = 0; float x = 0, z = 0; std::string reward; int amount = 0; };  // level 0 = sandbox, else 1-based adventure level
-struct StoneDef { std::string id, name; Color color; int level = 0; float x = 0, z = 0; };              // stone gate on that (1-based) level
+// One thing a stone can be assigned to. channel is pulse / strike / blast / roar.
+// bricks / radius scale that action, extra adds buildings to the walk pulse, heal runs when a super fires.
+struct StonePower {
+  std::string id, name, blurb, channel;
+  float bricks = 1, radius = 1, heal = 0;
+  int extra = 0;
+  bool people = false, zap = false;
+};
+struct StoneDef {  // stone gate on that (1-based) level; powers are assigned in the Infinity Stones menu
+  std::string id, name, blurb;
+  Color color;
+  int level = 0;
+  float x = 0, z = 0;
+  std::vector<StonePower> powers;
+};
 struct EggTables {
   std::vector<RarityDef> rarities;
   std::map<std::string, int> tierOf;                       // monster id -> rarity index

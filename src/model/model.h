@@ -34,6 +34,8 @@ struct Material {
   int texture = -1;          // index into Model::textures, or -1
   bool doubleSided = true;
   bool blend = false;        // alpha mode BLEND (drawn without depth write)
+  float roughness = 1.f;     // 1 = fully rough; the shader also glosses saturated albedo a little
+  float metallic = 0.f;
 };
 
 struct Vertex {              // 64 bytes, matches the HLSL input layout in dx12_model_renderer.cpp

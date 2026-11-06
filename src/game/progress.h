@@ -43,6 +43,7 @@ struct Profile {
   bool gauntletSlot = false, gauntlet = false, gauntletOn = false, gauntletCracked = false, endingDone = false;
   std::vector<std::string> stones;                 // stone ids in the gauntlet, in pickup order
   std::string lastBoss;                            // last end-of-level boss id; the next fight will not repeat it
+  std::string stoneBind[4];                        // power map: "stoneId:powerId" for pulse, strike, blast, roar
   void reset();
   Json toJson() const;
   void fromJson(const Json& j);

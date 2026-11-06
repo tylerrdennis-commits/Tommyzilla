@@ -31,6 +31,7 @@ Json Profile::toJson() const {
   j.set("gauntletCracked", Json::makeBool(gauntletCracked)); j.set("endingDone", Json::makeBool(endingDone));
   Json st = Json::makeArr(); for (auto& g : stones) st.arr.push_back(Json::makeStr(g)); j.set("stones", st);
   j.set("lastBoss", Json::makeStr(lastBoss));
+  Json sb = Json::makeArr(); for (auto& g : stoneBind) sb.arr.push_back(Json::makeStr(g)); j.set("stoneBinds", sb);
   return j;
 }
 void Profile::fromJson(const Json& j) {
@@ -58,6 +59,7 @@ void Profile::fromJson(const Json& j) {
   gauntletCracked = j["gauntletCracked"].boolOr(false); endingDone = j["endingDone"].boolOr(false);
   for (auto& g : j["stones"].arr) stones.push_back(g.strOr(""));
   lastBoss = j["lastBoss"].strOr("");
+  for (size_t i = 0; i < 4 && i < j["stoneBinds"].size(); i++) stoneBind[i] = j["stoneBinds"][i].strOr("");
 }
 void SaveData::reset() { *this = SaveData(); }
 Json SaveData::toJson() const {

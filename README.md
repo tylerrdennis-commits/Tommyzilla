@@ -2,8 +2,10 @@
 
 A kid-friendly kaiju sandbox set in a cartoon Victoria, BC. This is a C++17 / Win32 / Direct3D 12 rewrite of the
 browser prototype (kept in `../tommyzilla_web_prototype/`). Everything is drawn from instanced primitives (boxes,
-cylinders, spheres, cones…) with flat colours and Lambert/hemisphere lighting, plus **free CC0 3D models** (glTF/GLB +
-FBX, see *3D models* below) for the monsters, The Bulk, police, army, vehicles, civilians, city buildings and street
+cylinders, spheres, cones…) with hemisphere lighting, a warm key light, a cool fill, fake contact darkening at the
+ground, a dusk sky gradient and distance haze, a simple roughness/metal response on the existing colours, and a mild
+bloom on top of an ACES tonemap. **Free CC0 3D models** (glTF/GLB +
+FBX, see *3D models* below) are unchanged Kenney / Poly Pizza meshes for the monsters, The Bulk, police, army, vehicles, civilians, city buildings and street
 props. The ground (pavement, streets with dashed centre lines, parks, harbour water, the Dallas Road promenade) is
 textured with small procedural tiling textures, tinted by the original palette. Anything without a model (or with models switched off) uses the original primitive look. There are no audio
 files: the HUD uses a built-in bitmap font and every sound is synthesized at startup.
@@ -383,6 +385,12 @@ The *glow* moves hatch eggs: Glow Breath, Plate-Glow Beam, Sparkle Spit, Rainbow
 * **Power scales with stones:** every 8 m walked with the gauntlet slotted, a rainbow pulse collapses the nearest intact
   buildings. 0 stones = cosmetic only, then 2 / 3 / 5 / 6 / 8 / **10** buildings for 1-6 stones (`pulseTargets`).
   The pulse never touches bosses. It replaces the old random-level glove easter egg: the gauntlet **is** the glove.
+* **Infinity Stones (Skills menu):** with the gauntlet owned, *Infinity Stones* lists all six. Open one to read what
+  the stone is and what each of its powers does, then assign those powers to different actions — **Pulse** (the walk
+  shockwave), **Strike** (melee), **Blast** (ranged) and **Roar** (supers). One power per action; choosing another
+  replaces it; choosing the assigned power again clears it. Effects apply only while the gauntlet is equipped and you
+  still own that stone. The building-count table above is unchanged until a pulse power adds its own extra. Powers
+  ship in code (`src/game/eggs.cpp`) and can be overridden per stone with a `powers` array in `eggs.json`.
 
 ### Ending, credits and after-credits
 * **Credits** come from `data/credits.json` (editable: the exe reads `data\credits.json` beside it, with the embedded copy

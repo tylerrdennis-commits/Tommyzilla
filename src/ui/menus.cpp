@@ -190,11 +190,21 @@ void Game::openSkills() {
       MenuItem g;
       if (p.gauntlet) {
         g.label = "  The Bulk's Gauntlet"; g.right = p.gauntletOn ? "EQUIPPED" : "off"; g.icon = 2; g.iconColor = hexColor(0xffcc33);
-        g.desc = "Holds the six stones. Stones: " + std::to_string(stoneCount()) + "/6. Each stone makes its pulse flatten more buildings (up to 10)." + (adventure ? "" : " Press " + btn("RB", "R") + " for the rainbow wave!");
+        g.desc = "Holds the six stones. Stones: " + std::to_string(stoneCount()) + "/6. Each stone makes its pulse flatten more buildings (up to 10). Open Infinity Stones to assign each stone's powers to Pulse, Strike, Blast and Roar." + (adventure ? "" : " Press " + btn("RB", "R") + " for the rainbow wave!");
         g.act = [this]() { equipGauntlet(!P().gauntletOn); play(SND_ui); persist(); };
       } else if (p.gauntletCracked) { g.label = "  "; g.icon = 4; g.iconColor = Color{0.45f, 0.42f, 0.5f, 1}; g.enabled = false; }
       else { g.label = "  "; g.icon = 2; g.iconColor = Color{0.4f, 0.4f, 0.48f, 1}; g.enabled = false; }
       mm.items.push_back(g);
+      if (p.gauntlet || p.gauntletSlot) {
+        MenuItem inf; inf.label = "Infinity Stones"; inf.icon = 3; inf.iconColor = hexColor(0xb06bff);
+        inf.right = std::to_string(stoneCount()) + "/6";
+        inf.enabled = p.gauntlet;
+        inf.desc = p.gauntlet
+          ? "Choose a stone and assign its powers to different actions (Pulse, Strike, Blast, Roar). Each power explains itself. " + stoneBindSummary()
+          : "The gauntlet slot is empty. The stones show up once you have the gauntlet.";
+        inf.act = [this]() { openStoneMenu(); };
+        mm.items.push_back(inf);
+      }
     }
     if (p.zooKey) {  // collection: only ever listed once owned
       MenuItem k; k.label = "  Zookeeper's Key"; k.right = "collection"; k.icon = 1; k.iconColor = hexColor(0xffcc33); k.enabled = false;

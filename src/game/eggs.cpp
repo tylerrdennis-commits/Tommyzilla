@@ -10,6 +10,41 @@ std::string embeddedJson(const char* name);
 namespace {
 Color hexOr(const Json& j, Color d) { if (j.type != Json::String) return d; return hexColor((uint32_t)std::strtoul(j.str.c_str(), nullptr, 16)); }
 float num(const Json& j, const char* k, float d) { return (float)j[k].numOr(d); }
+StonePower pw(const char* id, const char* name, const char* channel, const char* blurb, float bricks, float radius, int extra, float heal, bool people, bool zap) {
+  StonePower p; p.id = id; p.name = name; p.channel = channel; p.blurb = blurb; p.bricks = bricks; p.radius = radius; p.extra = extra; p.heal = heal; p.people = people; p.zap = zap; return p;
+}
+void ensureStonePowers(EggTables& e) {
+  for (auto& s : e.stones) {
+    if (s.blurb.empty()) {
+      if (s.id == "storm") s.blurb = "A purple storm caught in glass. It wants the sky and anything that shoots.";
+      else if (s.id == "tide") s.blurb = "Deep water that pushes. It wants your swings and your roar.";
+      else if (s.id == "grove") s.blurb = "Living green that likes crowds. It wants the walk-pulse and your supers.";
+      else if (s.id == "ember") s.blurb = "A coal that never goes out. It wants melee and ranged attacks.";
+      else if (s.id == "sun") s.blurb = "Noon, bottled. It wants beams and a brighter roar.";
+      else if (s.id == "spark") s.blurb = "Static that jumps. It wants the walk-pulse and a sharper jab.";
+    }
+    if (!s.powers.empty()) continue;
+    if (s.id == "storm") {
+      s.powers.push_back(pw("thunder", "Thunder Step", "pulse", "Pulse (the walk shockwave): flattens 2 extra buildings and the rings burn storm-purple.", 1, 1, 2, 0, false, false));
+      s.powers.push_back(pw("bolt", "Bolt Breath", "blast", "Blast (breath, beams, bubbles and other ranged shots): smash 25% more bricks and reach a little farther.", 1.25f, 1.1f, 0, 0, false, false));
+    } else if (s.id == "tide") {
+      s.powers.push_back(pw("riptide", "Riptide Swipe", "strike", "Strike (melee): smash 20% more bricks and swing a bit wider.", 1.2f, 1.12f, 0, 0, false, false));
+      s.powers.push_back(pw("undertow", "Undertow Roar", "roar", "Roar (Charged Roar and other supers): the blast covers 25% more ground.", 1, 1.25f, 0, 0, false, false));
+    } else if (s.id == "grove") {
+      s.powers.push_back(pw("roots", "Root Shock", "pulse", "Pulse: the walk shockwave also turns nearby people into rainbow paint. Building count stays whatever your stones already give.", 1, 1, 0, 0, true, false));
+      s.powers.push_back(pw("canopy", "Canopy Roar", "roar", "Roar: firing a super heals you a little. Extra health becomes growth.", 1, 1, 0, 12, false, false));
+    } else if (s.id == "ember") {
+      s.powers.push_back(pw("cinder", "Cinder Claws", "strike", "Strike: melee hits smash 30% more bricks.", 1.3f, 1, 0, 0, false, false));
+      s.powers.push_back(pw("flare", "Flare Shot", "blast", "Blast: ranged attacks smash 20% more bricks and fly farther.", 1.2f, 1.15f, 0, 0, false, false));
+    } else if (s.id == "sun") {
+      s.powers.push_back(pw("solar", "Solar Lance", "blast", "Blast: ranged attacks smash 15% more bricks. Only one blast power can be assigned at a time.", 1.15f, 1, 0, 0, false, false));
+      s.powers.push_back(pw("daybreak", "Daybreak Roar", "roar", "Roar: supers reach 15% farther and heal a little when they fire.", 1, 1.15f, 0, 6, false, false));
+    } else if (s.id == "spark") {
+      s.powers.push_back(pw("sparkwalk", "Spark Walk", "pulse", "Pulse: flattens 1 extra building and zaps enemies caught near you.", 1, 1, 1, 0, false, true));
+      s.powers.push_back(pw("jab", "Static Jab", "strike", "Strike: melee hits smash 15% more bricks.", 1.15f, 1, 0, 0, false, false));
+    }
+  }
+}
 }  // namespace
 
 bool EggTables::load(const std::string& text, const Tables& t, std::string* err) {
@@ -60,8 +95,19 @@ bool EggTables::load(const std::string& text, const Tables& t, std::string* err)
     if (d.reward != "coins" && d.reward != "spin" && d.reward != "finish") { if (err) *err = "eggs.json: bad gate reward " + d.reward; return false; }
     gates.push_back(d);
   }
-  for (auto& q : j["stones"].arr) { StoneDef d; d.id = q["id"].strOr("?"); d.name = q["name"].strOr("?"); d.color = hexOr(q["color"], hexColor(0xffffff)); d.level = (int)num(q, "level", 0); d.x = num(q, "x", 0); d.z = num(q, "z", 0); stones.push_back(d); }
+  for (auto& q : j["stones"].arr) {
+    StoneDef d; d.id = q["id"].strOr("?"); d.name = q["name"].strOr("?"); d.blurb = q["blurb"].strOr("");
+    d.color = hexOr(q["color"], hexColor(0xffffff)); d.level = (int)num(q, "level", 0); d.x = num(q, "x", 0); d.z = num(q, "z", 0);
+    for (auto& pw : q["powers"].arr) {
+      StonePower p; p.id = pw["id"].strOr(""); p.name = pw["name"].strOr(p.id); p.blurb = pw["blurb"].strOr(""); p.channel = pw["channel"].strOr("");
+      p.bricks = num(pw, "bricks", 1); p.radius = num(pw, "radius", 1); p.heal = num(pw, "heal", 0); p.extra = (int)num(pw, "extra", 0);
+      p.people = pw["people"].boolOr(false); p.zap = pw["zap"].boolOr(false);
+      if (!p.id.empty() && !p.channel.empty()) d.powers.push_back(p);
+    }
+    stones.push_back(d);
+  }
   if (stones.size() != 6) { if (err) *err = "eggs.json: need exactly 6 stones"; return false; }
+  ensureStonePowers(*this);
   const Json& ga = j["gauntlet"];
   gauntletSlotLevel = (int)num(ga, "slotLevel", 12); gauntletBoxLevel = (int)num(ga, "boxLevel", 13); repelPush = num(ga, "repelPush", 60);
   if (ga["pulseTargets"].size() == 7) { pulseTargets.clear(); for (auto& v : ga["pulseTargets"].arr) pulseTargets.push_back((int)v.numOr(0)); }

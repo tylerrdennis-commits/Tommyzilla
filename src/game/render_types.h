@@ -32,11 +32,13 @@ struct RenderList {
   float animDt = 0;                          // animation time step for this frame (0 while paused)
   Mat4 view = Mat4::identity(), proj = Mat4::identity();
   Vec3 eye;
-  Color sky = hexColor(0x9fd4ff), fog = hexColor(0xbfe3ff);
+  Color sky = hexColor(0xf0b48a), fog = hexColor(0xf0b48a);
+  Color skyZenith = hexColor(0x241446), skyHorizon = hexColor(0xf0b48a);  // dusk gradient (clear + distance fog)
+  float exposure = 1.18f, contrast = 1.08f;
   float fogNear = 110, fogFar = 260;
   Vec3 lightDir = Vec3(-120, -200, -80);     // direction the sunlight travels (normalized by the renderer)
-  Color sunColor = hexColor(0xffd8c0); float sunIntensity = 0.75f;      // prototype: DirectionalLight(0xffd8c0, 0.75) at (120,200,80)
-  Color hemiSky = hexColor(0xc8d4ff), hemiGround = hexColor(0x2a1424); float hemiIntensity = 0.85f;  // HemisphereLight
+  Color sunColor = hexColor(0xffc090); float sunIntensity = 1.05f;      // warm key light (was 0xffd8c0 at 0.75, which left the city flat)
+  Color hemiSky = hexColor(0xb7c6ff), hemiGround = hexColor(0x8a5a42); float hemiIntensity = 0.95f;  // cool sky fill + warm ground bounce
   int width = 1280, height = 720;
   float uiScale = 0;                         // UIDraw base scale override (0 = from the height; split-screen halves use a smaller one)
   int vpX = 0, vpW = 0;                      // 3D viewport (pixels) inside the window: vpW 0 = full width (split screen: left / right half)

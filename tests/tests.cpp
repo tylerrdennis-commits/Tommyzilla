@@ -1384,6 +1384,33 @@ static void testGauntletArc() {
   CHECK(sb->gloveEquipped() && sb->glovePulse() == 0);
   SP.stones = {"storm", "tide", "grove"}; CHECK(sb->glovePulse() == E.pulseTargets[3]);
   SP.stones = {"storm", "tide", "grove", "ember", "sun", "spark"}; CHECK(sb->glovePulse() == 10);
+  // Infinity Stones: pick a stone and map each of its powers onto a different action
+  for (auto& s : E.stones) { CHECK(s.powers.size() >= 2 && s.blurb.size() > 16); for (auto& pw : s.powers) CHECK(pw.blurb.size() > 24 && !pw.name.empty() && !pw.channel.empty()); }
+  SP.stones = {"storm"};
+  CHECK(sb->assignStonePower(0, "storm", "thunder") && sb->P().stoneBind[0] == "storm:thunder");
+  CHECK(!sb->assignStonePower(1, "storm", "thunder"));  // Thunder Step is a pulse power, not a strike
+  CHECK(!sb->assignStonePower(2, "tide", "bolt"));      // Tide isn't owned
+  CHECK(sb->glovePulse() == E.pulseTargets[1] + 2);     // pulse count plus Thunder Step's extra buildings
+  SP.stones.push_back("ember");
+  float claw = sb->kaiju.moveBricks(T.moves[(size_t)T.moveIndex("claw")]);
+  CHECK(sb->assignStonePower(1, "ember", "cinder"));
+  float claw2 = sb->kaiju.moveBricks(T.moves[(size_t)T.moveIndex("claw")]);
+  CHECK(claw2 > claw * 1.25f && claw2 < claw * 1.35f);
+  { Json j = sb->save.toJson(); SaveData r; CHECK(r.fromJson(j) && r.sandbox.stoneBind[0] == "storm:thunder" && r.sandbox.stoneBind[1] == "ember:cinder"); }
+  sb->menus.clear(); sb->openSkills(); sb->updateMenus(InputState(), 0.016f);
+  bool opened = false;
+  for (auto& it : sb->menus.back().items) if (it.label == "Infinity Stones" && it.enabled && it.desc.find("Pulse") != std::string::npos) { opened = true; it.act(); }
+  CHECK(opened);
+  sb->updateMenus(InputState(), 0.016f);
+  CHECK(sb->menus.back().title == "INFINITY STONES");
+  for (auto& it : sb->menus.back().items) if (it.label == "Storm Stone") it.act();
+  sb->updateMenus(InputState(), 0.016f);
+  CHECK(sb->menus.back().title == "Storm Stone");
+  int explained = 0;
+  for (auto& it : sb->menus.back().items) if (it.desc.find("Pulse") != std::string::npos || it.desc.find("Blast") != std::string::npos) explained++;
+  CHECK(explained >= 2);
+  CHECK(sb->assignStonePower(0, "", "")); CHECK(sb->P().stoneBind[0].empty());
+  SP.stones = {"storm", "tide", "grove", "ember", "sun", "spark"}; sb->menus.clear();
   InputState w; w.moveY = 1; int p0 = sb->glovePulses; run(*sb, 1.5f, w); CHECK(sb->glovePulses > p0);  // pulses while moving
   int p1 = sb->glovePulses; run(*sb, 3); CHECK(sb->glovePulses == p1);
   SP.gauntletOn = false; CHECK(!sb->gloveEquipped());
