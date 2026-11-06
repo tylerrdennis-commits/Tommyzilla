@@ -44,7 +44,7 @@ static bool pickChampion(Game& g) {  // level-6 'PICK YOUR CHAMPION' menu: confi
 
 static void testData() {
   SECTION("data tables");
-  CHECK(T.moves.size() == 27); CHECK(T.monsters.size() == 18); CHECK(T.levels.size() == 20);
+  CHECK(T.moves.size() == 27); CHECK(T.monsters.size() == 50); CHECK(T.levels.size() == 20);
   int melee = 0, direct = 0, super = 0; std::set<std::string> ids, names;
   for (auto& m : T.moves) { melee += m.kind == MoveKind::Melee; direct += m.kind == MoveKind::Direct; super += m.kind == MoveKind::Super; ids.insert(m.id); names.insert(m.name); }
   CHECK(melee == 10); CHECK(direct == 11); CHECK(super == 6); CHECK(ids.size() == 27); CHECK(names.size() == 27);
@@ -54,7 +54,7 @@ static void testData() {
   CHECK(T.levels.back().obj == ObjType::Boss && T.levels.back().name == "THE BULK");
   std::set<std::string> mons; int starterMon = 0; std::set<int> plans;
   for (auto& m : T.monsters) { mons.insert(m.name); starterMon += m.starter; plans.insert((int)m.plan); CHECK(m.speed > 0.5f && m.speed < 1.6f); }
-  CHECK(mons.size() == 18); CHECK(starterMon == 1); CHECK(plans.size() == 7);
+  CHECK(mons.size() == 50); CHECK(starterMon == 1); CHECK(plans.size() == 7);
   CHECK(T.monsters[0].name == "Tommyzilla");
   for (auto& l : T.levels) CHECK(!l.name.empty() && !l.desc.empty());
   CHECK(T.levels[2].obj == ObjType::Destroy && T.levels[2].unit == "tank");
@@ -1007,7 +1007,7 @@ static Unit& addU(Game& g, UnitType t, Vec3 at, float dir = 0) { g.enemies.addUn
 static void testEggTables() {
   SECTION("egg tables: rarities, palettes, finishes (data/eggs.json)");
   CHECK(E.rarities.size() == 6);
-  const float rates[6] = {50, 27, 14, 6.5f, 2, 0.5f};
+  const float rates[6] = {36, 26, 20, 13, 4.5f, 0.5f};
   float sum = 0; for (int i = 0; i < 6; i++) { CHECK(std::fabs(E.rarities[i].rate - rates[i]) < 1e-4f); sum += E.rarities[i].rate; }
   CHECK(std::fabs(sum - 100) < 1e-3f);
   CHECK(E.rarities[5].name == "TOMMYZILLA" && E.rarityOf("tommyzilla") == 5);
@@ -2326,7 +2326,8 @@ static void testAirAndRampage() {
   h.pos.y = 12; h.hitCd = 0; g->enemies.hitArea(100, 100, 10, stomp, false, 0); CHECK(h.hp < 3 || h.wreck);  // low swooping heli feels the stomp
   // soft lock-on: a heli on the crosshair ray is found, one far off to the side is not
   g->enemies.units.clear(); g->enemies.addUnit(U_PHELI); Unit& h2 = g->enemies.units.back();
-  Vec3 o, d; g->aimRay(o, d); h2.pos = o + d * 70; Vec3 pt;
+  g->kaiju.cam.pitch = -0.45f; g->kaiju.cam.pos = Vec3(0, 3, 40); g->kaiju.cam.target = Vec3(0, 14, 0);  // camera low, looking up
+  Vec3 o, d; g->aimRay(o, d); CHECK(d.y > 0); h2.pos = o + d * 70; Vec3 pt;
   CHECK(g->aimAir(pt) == 0 && length(pt - h2.pos) < 3);
   h2.pos = o + d * 70 + Vec3(0, 0, 0) + cross(d, Vec3(0, 1, 0)) * 60; CHECK(g->aimAir(pt) < 0);
   CHECK(g->kaiju.cam.pitch >= -0.5f);
@@ -2340,13 +2341,28 @@ static void testAirAndRampage() {
   { auto b = sandboxGame(); b->enemies.addUnit(U_MBOSS); Unit& m = b->enemies.units.back(); CHECK(m.maxHp >= 40); m.hp = m.maxHp * 0.4f;
     run(*b, 0.2f); CHECK(b->enemies.units.empty() || b->enemies.units.back().enraged); CHECK(C.bossHardness >= 1.3f); }
 }
+static void testRoster50() {
+  SECTION("50 kaiju: unique ids, every tier filled, palettes, epics and rares are common finds");
+  CHECK(T.monsters.size() == 50);
+  std::set<std::string> ids, names; for (auto& m : T.monsters) { ids.insert(m.id); names.insert(m.name); }
+  CHECK(ids.size() == 50 && names.size() == 50);
+  int per[6] = {0, 0, 0, 0, 0, 0}; for (auto& m : T.monsters) per[E.rarityOf(m.id)]++;
+  CHECK(per[0] == 9 && per[1] == 9 && per[2] == 12 && per[3] == 12 && per[4] == 7 && per[5] == 1);
+  for (auto& m : T.monsters) { auto it = E.palettes.find(m.id); CHECK(it != E.palettes.end() && it->second.size() >= 3); CHECK(m.scale > 0.5f && m.hp > 0.5f && m.speed > 0.5f); }
+  CHECK(per[2] + per[3] >= 24);  // rares + epics are half the roster
+  // more rare/epic eggs than before: 20% + 13% per spin (was 14% + 6.5%)
+  CHECK(E.rarities[2].rate + E.rarities[3].rate >= 33);
+  // a hundred seeded spins roll a good spread of different species
+  { Rng r(12345); int rare = 0, epic = 0; const int N = 20000; for (int i = 0; i < N; i++) { int t = eggs::rollRarity(r); rare += t == 2; epic += t == 3; }
+    CHECK(rare > N * 0.18 && rare < N * 0.22 && epic > N * 0.115 && epic < N * 0.145); }
+}
 int main() {
   loadData();
   if (const char* only = std::getenv("TZ_ONLY")) {  // quick subset runs while developing: TZ_ONLY=bulk|arc|zoo|ending|...
     std::string o = only;
     if (o == "eggs") testEggTables(); if (o == "spin") testSpinner(); if (o == "growth") testGrowthAndXp(); if (o == "finish") testFinishRender();
     if (o == "ladder") testEnemyLadder(); if (o == "deevo") testDeevo(); if (o == "zoo") testZooAndKey(); if (o == "eat1") testOneButtonEat(); if (o == "siren") testSirenStops(); if (o == "split") testSplitScreen(); if (o == "cam") { testAdventureCamera(); testZooCageBlocks(); } if (o == "arc") testGauntletArc(); if (o == "oldtown") testOldTownQuest(); if (o == "zoogate") testZooGateQuest();
-    if (o == "bulk") testBulkStages(); if (o == "ending") testCreditsAndEnding(); if (o == "wren") testWrenWiring(); if (o == "adventure") testAdventure(); if (o == "police") testSandboxPoliceToggle(); if (o == "controls") testControlsMapping(); if (o == "store") testStoreGrid(); if (o == "ground") testGroundTextures(); if (o == "shader") testShaderKeywords(); if (o == "notes") testVersionNotes(); if (o == "air") testAirAndRampage();
+    if (o == "bulk") testBulkStages(); if (o == "ending") testCreditsAndEnding(); if (o == "wren") testWrenWiring(); if (o == "adventure") testAdventure(); if (o == "police") testSandboxPoliceToggle(); if (o == "controls") testControlsMapping(); if (o == "store") testStoreGrid(); if (o == "ground") testGroundTextures(); if (o == "shader") testShaderKeywords(); if (o == "notes") testVersionNotes(); if (o == "air") testAirAndRampage(); if (o == "roster") testRoster50();
     std::printf("\n%d passed, %d failed\n", gPass, gFail); return gFail ? 1 : 0;
   }
   testData(); testKaijuGen(); testRexPlay(); testUnlocks(); testEconomy(); testPolice(); testTitan(); testTitanGame(); testCampaign(); testSave(); testSynthAndMeshes();
@@ -2355,7 +2371,7 @@ int main() {
   testSkillSlots(); testSaveSlots(); testAdventureChoice(); testCrazy(); testPoliceAudioAndMovement(); testIntro();
   testEatFuel(); testRoster(); testLevel5Chests(); testProceduralCity(); testHiddenStones(); testChampionPick(); testDifficultyCurve();
   testModelHooks(); testSandboxPoliceToggle(); testControlsMapping(); testStoreGrid(); testGroundTextures(); testShaderKeywords();
-  testEggTables(); testSpinner(); testGrowthAndXp(); testFinishRender(); testEnemyLadder(); testDeevo(); testZooAndKey(); testOneButtonEat(); testAdventureCamera(); testZooCageBlocks(); testSirenStops(); testSplitScreen(); testGauntletArc(); testOldTownQuest(); testZooGateQuest(); testBulkStages(); testCreditsAndEnding(); testWrenWiring(); testVersionNotes(); testAirAndRampage();
+  testEggTables(); testSpinner(); testGrowthAndXp(); testFinishRender(); testEnemyLadder(); testDeevo(); testZooAndKey(); testOneButtonEat(); testAdventureCamera(); testZooCageBlocks(); testSirenStops(); testSplitScreen(); testGauntletArc(); testOldTownQuest(); testZooGateQuest(); testBulkStages(); testCreditsAndEnding(); testWrenWiring(); testVersionNotes(); testAirAndRampage(); testRoster50();
   std::printf("\n%d passed, %d failed\n", gPass, gFail);
   return gFail ? 1 : 0;
 }

@@ -365,7 +365,7 @@ void Game::openCharacterSelect(bool fromPause) {
     mm.body = std::to_string(save.monsters.size()) + "/" + std::to_string(T.monsters.size()) + " monsters. Hatch more in Adventure mode!\nEggs: " + std::to_string(save.eggs) + ". " + kShinyOddsLine;
     for (int i = 0; i < (int)T.monsters.size(); i++) {
       const MonsterDef& md = T.monsters[i]; bool has = crazy || save.monsters.count(md.id) > 0;  // Crazy: every hero is playable
-      MenuItem it; it.label = has ? md.name : "???"; it.right = md.id == save.monster ? "PLAYING" : (has ? "" : "locked");
+      MenuItem it; it.label = has ? md.name : "???"; it.right = md.id == save.monster ? "PLAYING" : (has ? "" : "locked  " + E.rarity(E.rarityOf(md.id)).name);
       if (has && hasLook(md.id)) { KaijuLook lk = lookOf(md.id); const RarityDef& rd = E.rarity(lk.rarity);
         it.right = (md.id == save.monster ? "PLAYING  " : "") + rd.name + (lk.finish ? std::string(" ") + E.finishes[lk.finish - 1].name : std::string()) + (lk.shiny ? " SHINY" : ""); }
       it.desc = has ? md.desc + "\n" + planName(md.plan) + "  speed x" + fmt1(md.speed) + "  HP x" + fmt1(md.hp) + "  melee x" + fmt1(md.melee) + "  power x" + fmt1(md.power)

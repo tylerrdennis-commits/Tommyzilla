@@ -63,6 +63,20 @@ add("stompasaurus", PP + "BlueDemon.glb", height=15, fallback="monster", clips=B
     recolor=[rc("BlueDemon_Main", "#3a6adf"), rc("BlueDemon_Secondary", "#e0a030")])
 add("pinchington", KP + "character-male-a.glb", height=14, fallback="monster", clips=CIV,
     extra=[KP + "Textures/colormap.png"])
+# ---- roster expansion (tools/gen_roster.py): 32 more kaiju, each reusing one of the real models above with its own colours
+import sys; sys.path.insert(0, HERE)
+from gen_roster import ROSTER, MESH
+CLIPSETS = {"BIG": BIG, "SMALL": SMALL, "DRAGON": DRAGON, "MECH": MECH, "CRAB": CRAB, "SERPENT": SERPENT}
+for tier, id, name, mesh, body, acc, belly, *_ in ROSTER:
+    f, h, cs, (m1, m2), plan = MESH[mesh]
+    rec = []
+    if m1: rec.append(rc(m1, "#" + body))
+    if m2: rec.append(rc(m2, "#" + acc))
+    if mesh == "crab": rec.append(rc("Crab_Belly", "#" + belly))
+    if mesh == "serpent": rec.append(rc("Snoot_Belly", "#" + belly))
+    e = {"height": h, "fallback": "monster", "clips": CLIPSETS[cs]}
+    if rec: e["recolor"] = rec
+    add(id, PP + f, **e)
 # ---- THE BULK: the Blue Demon in purple (game scale 1.6 .. 4.0 multiplies this 15 = Boss::height() at scale 1)
 add("the_bulk", PP + "BlueDemon.glb", height=15, fallback="boss", clips=BIG,
     recolor=[rc("BlueDemon_Main", "#8a3fd6", "hue"), rc("BlueDemon_Secondary", "#e0a030")])
