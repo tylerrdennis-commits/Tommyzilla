@@ -67,6 +67,25 @@ void UIDraw::star(float cx, float cy, float r, Color c) {
     rl.ui.push_back(o); rl.ui.push_back(p); rl.ui.push_back(q); rl.ui.push_back(o); rl.ui.push_back(w); rl.ui.push_back(p);
   }
 }
+void UIDraw::tri(float x1, float y1, float x2, float y2, float x3, float y3, Color c) {
+  rl.ui.push_back({x1, y1, c.r, c.g, c.b, c.a}); rl.ui.push_back({x2, y2, c.r, c.g, c.b, c.a}); rl.ui.push_back({x3, y3, c.r, c.g, c.b, c.a});
+}
+void UIDraw::kaijuHead(float cx, float cy, float r, Color c, Color eye) {
+  Color dark{c.r * 0.35f, c.g * 0.35f, c.b * 0.35f, c.a}, tooth{1.f, 1.f, 0.95f, c.a};
+  // back spikes
+  tri(cx - r * 0.75f, cy - r * 0.2f, cx - r * 0.45f, cy - r * 0.95f, cx - r * 0.1f, cy - r * 0.55f, c);
+  tri(cx - r * 0.2f, cy - r * 0.7f, cx + r * 0.05f, cy - r * 1.25f, cx + r * 0.35f, cy - r * 0.6f, c);
+  tri(cx + r * 0.2f, cy - r * 0.55f, cx + r * 0.6f, cy - r * 1.0f, cx + r * 0.8f, cy - r * 0.15f, c);
+  // skull + snout (two quads as triangles)
+  tri(cx - r * 0.8f, cy - r * 0.3f, cx + r * 0.7f, cy - r * 0.6f, cx + r * 0.9f, cy + r * 0.05f, c);
+  tri(cx - r * 0.8f, cy - r * 0.3f, cx + r * 0.9f, cy + r * 0.05f, cx - r * 0.6f, cy + r * 0.6f, c);
+  // jaw
+  tri(cx - r * 0.6f, cy + r * 0.6f, cx + r * 0.9f, cy + r * 0.05f, cx + r * 0.75f, cy + r * 0.55f, dark);
+  // teeth
+  for (int i = 0; i < 3; i++) { float tx = cx + r * (0.0f + 0.27f * i); tri(tx, cy + r * 0.12f, tx + r * 0.16f, cy + r * 0.12f, tx + r * 0.08f, cy + r * 0.42f, tooth); }
+  // angry eye
+  tri(cx + r * 0.05f, cy - r * 0.4f, cx + r * 0.55f, cy - r * 0.25f, cx + r * 0.1f, cy - r * 0.05f, eye);
+}
 float UIDraw::textW(const std::string& t, float scale) const {
   const VFont& F = chunky ? kBold : kMed; float em = emOf(scale), w = 0, best = 0;
   for (unsigned char ch : t) { if (ch == '\n') { best = std::max(best, w); w = 0; continue; } w += F.g[glyphIndex(ch)].adv / VF_Q * em; }

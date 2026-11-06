@@ -45,9 +45,9 @@
   // THE BULK (level 15 boss): HP, growth per landed hit (x1.065, was 1.06; also never less than the damage fraction) up to bossMaxScale x his starting bossBaseScale,
   // hit radius at scale 1, walk speed, damage taken per brick of the move that hits him, attack damage/radius/timing
   // normal mode is an easy win (was HP 260, per-brick 0.6, pound 5, rush 6, throw 4): about 17 claw hits, by then he is near max size
-  "bossHp": 150, "bossGrowPerHit": 0.065, "bossMaxScale": 2.5, "bossBaseScale": 1.6, "bossRadius": 5.5, "bossSpeed": 7,
+  "bossHp": 220, "bossGrowPerHit": 0.065, "bossMaxScale": 2.5, "bossBaseScale": 1.6, "bossRadius": 5.5, "bossSpeed": 7,
   "bossDamagePerBrick": 0.5, "bossHitGap": 0.15, "bossPoundDamage": 3, "bossPoundRadius": 16, "bossRushDamage": 3.5, "bossRushSpeed": 28,
-  "bossThrowDamage": 2.5, "bossAttackGap": 3.2, "bossIntroTime": 3.5,
+  "bossHardness": 1.4, "bossThrowDamage": 2.5, "bossAttackGap": 3.2, "bossIntroTime": 3.5,
   // startup cinematic ("Tommy D Productions presents", city reveal, TOMMYZILLA title): 1 = on, 0 = off (-nointro also skips it)
   "introEnabled": 1,
   // secret item (see README developer notes): metres walked per pulse, buildings flattened per pulse, share of the map smashed before it drops, pickup range
@@ -74,7 +74,7 @@
   "tier1Hp": 1.6, "tier1Damage": 1.15, "tier1Speed": 1.1, "tier1Count": 1.0,
   "tier2Hp": 2.2, "tier2Damage": 1.3, "tier2Speed": 1.2, "tier2Count": 1.25,
   // end-of-level bosses on levels 11-14 (Giant Super-Tank / Mega Mech): hits to beat, cannon damage, reload, speed
-  "mbossHp": 24, "mbossShotDamage": 1.5, "mbossReload": 3.0, "mbossSpeed": 6,
+  "mbossHp": 40, "mbossShotDamage": 1.5, "mbossReload": 3.0, "mbossSpeed": 6,
   // normal Adventure: at the start of this level you pick your favourite kaiju; it stays locked in for the rest of the campaign
   "kaijuPickLevel": 6,
   // kid-friendly campaign: every enemy hit in Adventure (and THE BULK) is scaled by this; Crazy doubles it again (crazyEnemyDamage)

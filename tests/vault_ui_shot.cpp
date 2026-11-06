@@ -37,7 +37,7 @@ int main(int argc, char** argv) {
   g->save.created = true; g->menus.clear(); g->openMainMenu(); g->realTime = 5; if (argc > 2) g->menus.back().index = std::atoi(argv[2]);
   { RenderList rl; rl.width = cw; rl.height = H; g->drawMenus(rl); rl.ui.clear(); g->realTime += 1; g->drawMenus(rl); raster(img, W, H, 0, cw, rl); }
   if (argc > 2) g->menus.back().index = std::atoi(argv[2]);
-  g->menus.clear(); g->save.tutorial.done = true; g->startMode(false); g->menus.clear(); g->mode = Mode::Play; g->mouseCaptured = true;
+  g->menus.clear(); g->save.tutorial.done = true; g->startMode(false); g->menus.clear(); g->mode = Mode::Play; g->mouseCaptured = true; if (std::getenv("TZ_HEAT")) g->enemies.heat = (float)std::atof(std::getenv("TZ_HEAT"));
   std::string which = argc > 3 ? argv[3] : "hud";
   if (which == "pause") g->openPause(); else if (which == "options") g->openOptions(); else if (which == "chars") g->openCharacterSelect(false); else if (which == "store") g->openStore(); else if (which == "skills") g->openSkills(); else if (which == "stones") g->openStoneMenu();
   { RenderList rl; rl.width = cw; rl.height = H; if (which == "hud") g->drawHud(rl); g->drawMenus(rl); g->realTime += 1; rl.ui.clear(); if (which == "hud") g->drawHud(rl); g->drawMenus(rl); std::fprintf(stderr, "ui vertices this frame: %zu (%.1f MB)\n", rl.ui.size(), rl.ui.size() * sizeof(UIVertex) / 1048576.0); raster(img, W, H, cw, cw, rl); }

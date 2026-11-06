@@ -34,7 +34,7 @@ namespace tz {
   X(keyCost, 100) X(coinsPerRainbow, 2) X(chestRange, 12) X(chestDist, 24) \
   X(bossHp, 150) X(bossGrowPerHit, 0.065f) X(bossMaxScale, 2.5f) X(bossBaseScale, 1.6f) X(bossRadius, 5.5f) X(bossSpeed, 7) \
   X(bossDamagePerBrick, 0.5f) X(bossHitGap, 0.15f) X(bossPoundDamage, 3) X(bossPoundRadius, 16) X(bossRushDamage, 3.5f) X(bossRushSpeed, 28) \
-  X(bossThrowDamage, 2.5f) X(bossAttackGap, 3.2f) X(bossIntroTime, 3.5f) \
+  X(bossHardness, 1.4f) X(bossThrowDamage, 2.5f) X(bossAttackGap, 3.2f) X(bossIntroTime, 3.5f) \
   X(introEnabled, 1) X(gloveStep, 8) X(gloveTargets, 10) X(gloveDropFraction, 0.5f) X(glovePickupRange, 8) X(policeVolume, 0.4f) X(policeMaxVoices, 3) \
   X(crazyEnemyHp, 2) X(crazyEnemyDamage, 2) X(crazyBossHp, 2) X(crazySuperCost, 1.75f) \
   X(eatCostStart, 2) X(eatCostEnd, 14) X(eatCostMinCharge, 0.5f) X(eatCostFullCharge, 1.0f) X(levelMinCivilians, 26) X(levelRespawnInterval, 0.6f) \

@@ -746,6 +746,19 @@ void Game::aimRay(Vec3& o, Vec3& d) const {
     d = d * (1.f / length(d));
   }
 }
+int Game::aimAir(Vec3& point) const {
+  Vec3 o, d; aimRay(o, d); int best = -1; float bestScore = 1e9f;
+  for (int i = 0; i < (int)enemies.units.size(); i++) {
+    const Unit& u = enemies.units[i];
+    if (u.wreck || !u.air()) continue;
+    Vec3 c = u.pos + Vec3(0, 1.5f, 0), v = c - o; float t = dot(v, d);
+    if (t < 8 || t > 260) continue;
+    float perp = length(v - d * t), tol = 10 + t * 0.14f;  // about an 8 degree cone
+    if (perp > tol) continue;
+    if (perp / tol < bestScore) { bestScore = perp / tol; best = i; point = c; }
+  }
+  return best;
+}
 int Game::aimTarget(Vec3& point) {
   Vec3 o, d; aimRay(o, d);
   int bi = T.moveIndex("blaster");

@@ -104,7 +104,7 @@ void Game::updateBossFocused(float dt) {
       if (pick == 3 && d < 20) pick = 1;
       b.attack = pick; b.attackT = 0; b.attackHit = false; b.attackSeq++;
       b.rushDir = d > 0.01f ? to * (1.f / d) : Vec3(0, 0, 1);
-      b.nextAttack = C.bossAttackGap / speedK * (b.staged && b.stage >= 2 ? 0.75f : 1.f);  // stages 2-3 attack more often
+      b.nextAttack = C.bossAttackGap * 0.8f / speedK * (b.staged && b.stage >= 2 ? 0.75f : 1.f);  // stages 2-3 attack more often
       if (pick == 2) toast("THE BULK is charging!");
     }
   } else {
@@ -124,7 +124,7 @@ void Game::updateBossFocused(float dt) {
         debris->kick(b.pos.x, b.pos.z, R, 18); people.knock(b.pos.x, b.pos.z, R, 10);
         world.damageSphere(b.pos.x, 2, b.pos.z, b.radius() * 1.3f, 30, b.pos.x, b.pos.z, 14);
         playAt(SND_quake, b.pos, 1); kaiju.cam.shake = 1.4f; vibrate(1, 0.4f);
-        if (dist2D(kaiju.pos.x, kaiju.pos.z, b.pos.x, b.pos.z) < R) kaiju.damage(C.bossPoundDamage * (b.staged && b.stage >= 2 ? E.bulkStage2Damage : 1.f));
+        if (dist2D(kaiju.pos.x, kaiju.pos.z, b.pos.x, b.pos.z) < R) kaiju.damage(C.bossHardness * C.bossPoundDamage * (b.staged && b.stage >= 2 ? E.bulkStage2Damage : 1.f));
       }
       if (b.attackT > 1.4f) b.attack = 0;
     } else if (b.attack == 2) {  // CHARGING RUSH: crouch, then barrel forward smashing buildings
@@ -136,7 +136,7 @@ void Game::updateBossFocused(float dt) {
         people.knock(b.pos.x, b.pos.z, b.radius() + 4, 12);
         if (frand() < dt * 30) fx->dust(b.pos.x, b.pos.z, 3, b.radius());
         if (!b.attackHit && dist2D(kaiju.pos.x, kaiju.pos.z, b.pos.x, b.pos.z) < b.radius() + kaiju.radius() + 2) {
-          b.attackHit = true; kaiju.damage(C.bossRushDamage * (b.staged && b.stage >= 2 ? E.bulkStage2Damage : 1.f)); kaiju.pos += b.rushDir * 6; kaiju.cam.shake = 1.2f; vibrate(1, 0.3f); playAt(SND_bonk, kaiju.pos, 1, 0.6f);
+          b.attackHit = true; kaiju.damage(C.bossHardness * C.bossRushDamage * (b.staged && b.stage >= 2 ? E.bulkStage2Damage : 1.f)); kaiju.pos += b.rushDir * 6; kaiju.cam.shake = 1.2f; vibrate(1, 0.3f); playAt(SND_bonk, kaiju.pos, 1, 0.6f);
         }
       } else b.attack = 0;
     } else {  // DEBRIS THROW: scoops a boulder and lobs it at you (it lands where you were standing)
@@ -161,7 +161,7 @@ void Game::updateBossFocused(float dt) {
     fx->ring(r.pos.x, r.pos.z, 9, 0.5f, hexColor(0xffd36b)); fx->dust(r.pos.x, r.pos.z, 12, 2);
     for (int k = 0; k < 8; k++) debris->spawn(r.pos + Vec3(0, 1, 0), Vec3((frand() - 0.5f) * 16, 6 + frand() * 8, (frand() - 0.5f) * 16), hexColor(0x8a7aa0), 0.6f + frand() * 0.6f);
     playAt(SND_crumble, r.pos, 1, 0.8f);
-    if (dist2D(r.pos.x, r.pos.z, kaiju.pos.x, kaiju.pos.z) < 8 + kaiju.radius()) kaiju.damage(C.bossThrowDamage * (b.staged && b.stage >= 2 ? E.bulkStage2Damage : 1.f));
+    if (dist2D(r.pos.x, r.pos.z, kaiju.pos.x, kaiju.pos.z) < 8 + kaiju.radius()) kaiju.damage(C.bossHardness * C.bossThrowDamage * (b.staged && b.stage >= 2 ? E.bulkStage2Damage : 1.f));
     b.rocks.erase(b.rocks.begin() + i);
   }
   b.pos.x = clampf(b.pos.x, -C.worldHalf + 20, C.worldHalf - 20); b.pos.z = clampf(b.pos.z, -C.worldHalf + 20, C.worldHalf - 20);

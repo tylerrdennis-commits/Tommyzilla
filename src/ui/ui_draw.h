@@ -13,6 +13,8 @@ struct UIDraw {
   void rectGrad(float x, float y, float w, float h, Color tl, Color tr, Color bl, Color br);  // per-corner colours (smooth gradients)
   void frame(float x, float y, float w, float h, Color c, float t);
   void star(float cx, float cy, float r, Color c);
+  void tri(float x1, float y1, float x2, float y2, float x3, float y3, Color c);
+  void kaijuHead(float cx, float cy, float r, Color c, Color eye);  // rampage-level symbol: a spiky, toothy kaiju head
   float textW(const std::string& t, float scale) const;
   float lineH(float scale) const { return 13 * scale; }
   void text(float x, float y, const std::string& t, float scale, Color c, bool shadow = true);
