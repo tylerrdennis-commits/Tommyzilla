@@ -19,6 +19,7 @@ class GameModels : public ModelCatalog {
   int find(const std::string& id) override;
   int variant(int asset, const std::string& name) override;
   bool bounds(int asset, Vec3& lo, Vec3& hi) override;
+  bool hasDistinctRun(int asset) override { return clipFor(asset, MC_RUN) != clipFor(asset, MC_WALK); }
   const mdl::ModelAsset* asset(int index) const { return index >= 0 && index < (int)assets_.size() ? assets_[(size_t)index].asset : nullptr; }
   int clipFor(int asset, int logical) const;   // logical ModelClip -> clip index with fallbacks (-1 = rest pose)
 
@@ -32,7 +33,7 @@ class GameModels : public ModelCatalog {
   int gcFrames = 120;               // drop animators unseen for this many frames
  private:
   struct Entry { std::string id; const mdl::ModelAsset* asset = nullptr; std::vector<std::string> variants; Vec3 lo, hi; float radius = 1; };
-  struct Anim { mdl::Animator a; int asset = -1, clip = -2, lastSeen = 0, lastUpdate = 0; uint16_t trigger = 0; float acc = 0; bool started = false; };
+  struct Anim { mdl::Animator a; int asset = -1, clip = -2, lastSeen = 0, lastUpdate = 0; uint16_t trigger = 0; float acc = 0; bool started = false; uint8_t logical = 255; };
   void drive(Anim& an, const ModelReq& r, int clip, float dist, bool isShared);
   mdl::ModelLibrary& lib_;
   std::vector<Entry> assets_;

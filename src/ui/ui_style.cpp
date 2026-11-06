@@ -12,49 +12,67 @@ float pressScale(BtnState s, float since, bool rm) {
 void roundRect(UIDraw& u, float x, float y, float w, float h, float r, Color c) {
   r = std::max(0.f, std::min(r, std::min(w, h) / 2));
   if (r < 1) { u.rect(x, y, w, h, c); return; }
-  u.rect(x, y + r, w, h - 2 * r, c);
-  int steps = std::max(2, (int)(r / 2));                                   // corner rows, stepped for a rounded silhouette
-  for (int i = 0; i < steps; i++) {
-    float y0 = r * i / steps, y1 = r * (i + 1) / steps, dy = r - (y0 + y1) / 2;
-    float in = r - std::sqrt(std::max(0.f, r * r - dy * dy));
-    u.rect(x + in, y + y0, w - 2 * in, y1 - y0, c);
-    u.rect(x + in, y + h - y1, w - 2 * in, y1 - y0, c);
+  // convex outline (4 arcs) drawn as one triangle fan: smooth corners at a fraction of the vertices the old stepped rows used
+  int seg = std::max(3, std::min(8, (int)std::ceil(r / 3.f)));
+  static std::vector<float> P; P.clear();
+  const float cx[4] = {x + w - r, x + r, x + r, x + w - r}, cy[4] = {y + r, y + r, y + h - r, y + h - r}, a0[4] = {-PI / 2, PI, PI / 2, 0};
+  for (int k = 0; k < 4; k++) {   // top-right, top-left, bottom-left, bottom-right (counter-clockwise on screen)
+    float start = k == 0 ? -PI / 2 : k == 1 ? -PI : k == 2 ? PI / 2 : 0, dir = k == 0 ? -1.f : -1.f; (void)a0; (void)dir;
+    float from = k == 0 ? 0.f : k == 1 ? -PI / 2 : k == 2 ? -PI : PI / 2; (void)start;
+    for (int i = 0; i <= seg; i++) { float ang = from - (PI / 2) * i / seg; P.push_back(cx[k] + std::cos(ang) * r); P.push_back(cy[k] + std::sin(ang) * r); }
+  }
+  size_t n = P.size() / 2; float mx = x + w / 2, my = y + h / 2;
+  for (size_t i = 0; i < n; i++) {
+    size_t j = (i + 1) % n;
+    float ax = mx, ay = my, bx = P[i * 2], by = P[i * 2 + 1], ex = P[j * 2], ey = P[j * 2 + 1];
+    if ((bx - ax) * (ey - ay) - (by - ay) * (ex - ax) < 0) { std::swap(bx, ex); std::swap(by, ey); }   // same winding as UIDraw::rect
+    u.rl.ui.push_back(UIVertex{ax, ay, c.r, c.g, c.b, c.a}); u.rl.ui.push_back(UIVertex{bx, by, c.r, c.g, c.b, c.a}); u.rl.ui.push_back(UIVertex{ex, ey, c.r, c.g, c.b, c.a});
   }
 }
 void glow(UIDraw& u, float x, float y, float w, float h, float r, Color c, float spread) {
   for (int i = 3; i >= 1; i--) { float e = spread * i / 3; Color g = c; g.a = c.a * 0.10f * (4 - i);
     roundRect(u, x - e, y - e, w + 2 * e, h + 2 * e, r + e, g); }
 }
+void gradV(UIDraw& u, float x, float y, float w, float h, Color top, Color bottom) { u.rectGrad(x, y, w, h, top, top, bottom, bottom); }
+void gradH(UIDraw& u, float x, float y, float w, float h, Color left, Color right) { u.rectGrad(x, y, w, h, left, right, left, right); }
 void panel(UIDraw& u, float x, float y, float w, float h, bool primary) {
-  float s = u.s, r = 8 * s;
-  roundRect(u, x + 2 * s, y + 4 * s, w, h, r, Color{0, 0, 0, 0.35f});    // soft shadow
-  glow(u, x, y, w, h, r, primary ? cyan() : Color{0.23f, 0.84f, 1.f, 0.5f}, 4 * s);
-  roundRect(u, x, y, w, h, r, bg());
-  roundRect(u, x + r, y + 1, w - 2 * r, std::max(1.f, s / 2), 0, Color{0.23f, 0.84f, 1.f, 0.55f});  // top rim light
+  float s = u.s, r = 12 * s;
+  for (int i = 4; i >= 1; i--) roundRect(u, x - i * 2 * s, y - i * 2 * s + 6 * s, w + i * 4 * s, h + i * 4 * s, r + i * 2 * s, Color{0, 0, 0, 0.07f});  // soft drop shadow
+  roundRect(u, x - 1, y - 1, w + 2, h + 2, r + 1, primary ? Color{0.23f, 0.84f, 1.f, 0.35f} : Color{1, 1, 1, 0.12f});   // hairline border
+  roundRect(u, x, y, w, h, r, Color{0.05f, 0.06f, 0.09f, 0.90f});
+  gradV(u, x + 1, y + r, w - 2, h - 2 * r, Color{0.11f, 0.14f, 0.19f, 0.30f}, Color{0.0f, 0.0f, 0.0f, 0.18f});         // gentle vertical sheen
+  roundRect(u, x + r, y + 1, w - 2 * r, std::max(1.f, s / 2), 0, Color{1, 1, 1, 0.10f});                                // top highlight
 }
 void button(UIDraw& u, float x, float y, float w, float h, const std::string& label, BtnState st, BtnRole role, float sc, float ts) {
   float cx = x + w / 2, cy = y + h / 2; w *= sc; h *= sc; x = cx - w / 2; y = cy - h / 2;
-  float r = std::min(h / 2, 10 * u.s);
-  Color base = role == ROLE_PRIMARY ? Color{0.55f, 0.40f, 0.08f, 0.95f} : Color{0.12f, 0.15f, 0.19f, 0.92f};
-  Color tc = role == ROLE_PRIMARY ? Color{1, 0.95f, 0.85f, 1} : text();
-  if (st == BTN_DISABLED) { base = Color{0.10f, 0.11f, 0.13f, 0.7f}; tc = Color{0.50f, 0.53f, 0.58f, 1}; }
-  if (st == BTN_FOCUS || st == BTN_PRESSED) {
-    Color gc = role == ROLE_PRIMARY ? accent() : cyan(); if (st == BTN_PRESSED) gc.a = 1.f; else gc.a = 0.8f;
-    glow(u, x, y, w, h, r, gc, (st == BTN_PRESSED ? 6.f : 4.f) * u.s);
-    roundRect(u, x - 2 * u.s / 2 - 1, y - u.s - 1, w + u.s + 2, h + 2 * u.s + 2, r + u.s, gc);  // focus ring
-    if (role == ROLE_SECONDARY) base = Color{0.10f, 0.30f, 0.38f, 0.96f};
-    else base = Color{0.75f, 0.55f, 0.12f, 1};
-    if (st == BTN_PRESSED) { base.r = std::min(1.f, base.r * 1.25f); base.g = std::min(1.f, base.g * 1.25f); base.b = std::min(1.f, base.b * 1.25f); }
+  float r = std::min(h / 2, 8 * u.s);
+  Color tc = text();
+  if (role == ROLE_PRIMARY) {   // the one accent action: solid gold, dark text
+    Color base = Color{0.96f, 0.72f, 0.20f, 1}; tc = Color{0.12f, 0.08f, 0.02f, 1};
+    if (st == BTN_FOCUS || st == BTN_PRESSED) { glow(u, x, y, w, h, r, accent(), 5 * u.s); base = Color{1.f, 0.82f, 0.35f, 1}; }
+    if (st == BTN_PRESSED) base = Color{1.f, 0.90f, 0.55f, 1};
+    if (st == BTN_DISABLED) { base = Color{0.28f, 0.25f, 0.18f, 0.8f}; tc = Color{0.55f, 0.52f, 0.45f, 1}; }
+    roundRect(u, x, y, w, h, r, base);
+  } else if (st == BTN_FOCUS || st == BTN_PRESSED) {   // focus: soft cyan wash fading right + solid accent bar on the left
+    float a = st == BTN_PRESSED ? 0.46f : 0.30f;
+    roundRect(u, x, y, w, h, r, Color{0.23f, 0.84f, 1.f, 0.06f});
+    gradH(u, x + std::max(3.f, 3 * u.s), y, w - std::max(3.f, 3 * u.s), h, Color{0.23f, 0.84f, 1.f, a}, Color{0.23f, 0.84f, 1.f, 0.0f});
+    roundRect(u, x, y + h * 0.16f, std::max(3.f, 3 * u.s), h * 0.68f, 1.5f * u.s, cyan());
+  } else if (st == BTN_DISABLED) {
+    tc = Color{0.50f, 0.53f, 0.58f, 1};
+    roundRect(u, x, y, w, h, r, Color{1, 1, 1, 0.02f});
+  } else {
+    roundRect(u, x, y, w, h, r, Color{1, 1, 1, 0.045f});   // resting: barely-there plate
   }
-  roundRect(u, x, y, w, h, r, base);
+  if (label.empty()) return;
   ts *= sc; float tw = u.textW(label, ts); if (tw > w - 8 * u.s) { ts *= (w - 8 * u.s) / tw; }
   u.textC(cx, cy - u.lineH(ts) * 0.42f, label, ts, tc);
 }
-void titleText(UIDraw& u, float cx, float y, const std::string& t, float scale, Color c) {
-  float o = std::max(1.f, scale * 0.5f);   // chunky: thick dark outline + doubled stroke
-  Color k{0.02f, 0.03f, 0.05f, c.a}; bool was = u.chunky; u.chunky = true;
-  for (int dx = -1; dx <= 1; dx++) for (int dy = -1; dy <= 2; dy++) if (dx || dy) u.textC(cx + dx * o, y + dy * o, t, scale, k, false);
-  u.textC(cx, y, t, scale, c, false); u.textC(cx + o * 0.5f, y, t, scale, c, false); u.chunky = was;
+void titleText(UIDraw& u, float cx, float y, const std::string& t, float scale, Color c) {   // clean smooth title (no retro outline)
+  bool was = u.chunky; u.chunky = true;   // Bold weight
+  u.textC(cx + scale * 0.6f, y + scale * 0.9f, t, scale, Color{0, 0, 0, 0.45f}, false);
+  u.textC(cx, y, t, scale, c, false);
+  u.chunky = was;
 }
 void closeX(UIDraw& u, float x, float y, float q, bool focus) {
   roundRect(u, x, y, q, q, q / 2, focus ? Color{0.10f, 0.30f, 0.38f, 0.96f} : Color{0.12f, 0.15f, 0.19f, 0.9f});

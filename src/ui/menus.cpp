@@ -492,6 +492,82 @@ void Game::updateMenus(const InputState& in, float dt) {
   if (back && !m.noBack) { auto ob = m.onBack; play(SND_back); if (ob) ob(); else popMenu(); }
 }
 
+// Modern title screen: logo + short tagline on the left over soft scrims (the 3D city stays visible), flat highlight rows,
+// the focused item's description in a card at the bottom-left, key hints bottom-right. Same Menu data / mouse layout as before.
+void Game::drawMainMenu(UIDraw& u, Menu& m) {
+  float s = u.s, W = u.W, H = u.H;
+  float an = menuAnim(m);
+  Color ink = style::text(), dim = style::textDim();
+  // scrims: darken the left for legibility, a soft band at the bottom and a faint one on top
+  style::gradH(u, 0, 0, W * 0.64f, H, Color{0.02f, 0.03f, 0.06f, 0.82f * an}, Color{0.02f, 0.03f, 0.06f, 0.0f});
+  style::gradV(u, 0, H * 0.80f, W, H * 0.20f, Color{0, 0, 0, 0.0f}, Color{0, 0, 0, 0.55f * an});
+  style::gradV(u, 0, 0, W, H * 0.12f, Color{0, 0, 0, 0.40f * an}, Color{0, 0, 0, 0.0f});
+  float colW = std::min(W * 0.42f, 190 * s), colX = std::max(22 * s, W * 0.06f) - (1 - an) * 28 * s;
+  // logo
+  std::string big = m.title, sub;
+  size_t sp = big.find(' '); if (sp != std::string::npos) { sub = big.substr(sp + 1); big = big.substr(0, sp); }
+  u.chunky = true;   // logo in the Bold weight
+  float bigS = std::min(s * 2.1f, colW / std::max(1.f, u.textW(big, 1.f)));
+  float y = std::max(14 * s, H * 0.06f);
+  u.text(colX, y, big, bigS, ink, true); y += u.lineH(bigS) + 1 * s; u.chunky = false;
+  std::string spaced; for (size_t i = 0; i < sub.size(); i++) { spaced += sub[i]; if (i + 1 < sub.size()) spaced += ' '; }
+  float subS = std::min(s * 0.95f, colW / std::max(1.f, u.textW(spaced, 1.f)));
+  u.text(colX + 2 * s, y, spaced, subS, style::cyan(), true); y += u.lineH(subS) + 6 * s;
+  style::roundRect(u, colX + 2 * s, y, 44 * s, std::max(2.f, 2.5f * s), 1.5f * s, style::accent()); y += 12 * s;
+  // tagline (first paragraph of the body); the second paragraph (save slot) becomes a pill at the top right
+  std::string tag = m.body, slotLine; size_t nl = tag.find('\n');
+  if (nl != std::string::npos) { slotLine = tag.substr(nl + 1); tag = tag.substr(0, nl); }
+  float bodyS = s * 0.75f, itemS = s * 0.9f;
+  for (auto& l : u.wrap(tag, std::min(W * 0.5f, 240 * s), bodyS)) { u.text(colX + 2 * s, y, l, bodyS, dim, true); y += u.lineH(bodyS); }
+  y += 10 * s;
+  if (!slotLine.empty()) {
+    if (slotLine.rfind("Playing in ", 0) == 0) slotLine = slotLine.substr(11);
+    if (!slotLine.empty() && slotLine.back() == '.') slotLine.pop_back();
+    float pw = u.textW(slotLine, bodyS) + 20 * s, ph = u.lineH(bodyS) + 10 * s, px = W - pw - 22 * s, py = 16 * s;
+    style::roundRect(u, px, py, pw, ph, ph / 2, Color{0.05f, 0.07f, 0.10f, 0.75f * an});
+    u.text(px + 10 * s, py + 5 * s, slotLine, bodyS, ink, false);
+  }
+  // description card for the focused item (reserved at the bottom so the rows never run into it)
+  const MenuItem* sel = m.items.empty() ? nullptr : &m.items[std::max(0, std::min((int)m.items.size() - 1, m.index))];
+  float cardW = std::min(W * 0.55f, 285 * s);
+  std::vector<std::string> desc = sel ? u.wrap(sel->desc, cardW - 20 * s, bodyS) : std::vector<std::string>();
+  float cardH = std::max<size_t>(desc.size(), 2) * u.lineH(bodyS) + 16 * s, cardY = H - cardH - 16 * s;
+  float reserveY = H - (4 * u.lineH(bodyS) + 16 * s) - 16 * s;   // rows always leave room for a 4-line card, so the list never jumps while you move
+  // rows
+  float itemH = u.lineH(itemS) + 7 * s;
+  int rows = std::max(3, (int)((reserveY - 6 * s - y) / itemH)); rows = std::min(rows, (int)m.items.size());
+  if (m.index < m.scroll) m.scroll = m.index;
+  if (m.index >= m.scroll + rows) m.scroll = m.index - rows + 1;
+  m.scroll = std::max(0, std::min(m.scroll, (int)m.items.size() - rows));
+  float rx = colX - 8 * s, rw = colW + 16 * s;
+  menuLayout = {rx, y, rw, itemH, m.scroll, rows};
+  for (int r = 0; r < rows; r++) {
+    int i = m.scroll + r; const MenuItem& it = m.items[i]; bool on = i == m.index;
+    float slide = (1 - style::easeOut((an * 1.25f - r * 0.07f) / 0.8f)) * 36 * s; if (save.settings.reducedMotion) slide = 0;
+    style::BtnState bs = on ? ((menuPressT > 0 && it.enabled) ? style::BTN_PRESSED : style::BTN_FOCUS) : !it.enabled ? style::BTN_DISABLED : style::BTN_NORMAL;
+    style::button(u, rx - slide, y, rw, itemH - 3 * s, "", bs, style::ROLE_SECONDARY, 1.f, itemS);
+    Color c = !it.enabled ? Color{0.50f, 0.53f, 0.60f, 1} : on ? Color{1, 1, 1, 1} : Color{0.84f, 0.88f, 0.94f, 1};
+    float ty = y + (itemH - 3 * s - u.lineH(itemS)) / 2 - 0.5f * s;
+    u.text(rx - slide + 14 * s + (on ? 3 * s : 0), ty, it.label, itemS, c, on);
+    if (!it.right.empty()) {
+      bool lockedTag = !it.enabled;
+      u.textR(rx - slide + rw - 12 * s, ty + 1.5f * s, it.right, itemS * 0.8f, lockedTag ? Color{0.62f, 0.55f, 0.40f, 1} : on ? style::accent() : dim, false);
+    }
+    y += itemH;
+  }
+  if ((int)m.items.size() > rows) u.text(colX + 2 * s, y, "more below", bodyS * 0.9f, dim, false);
+  // description card
+  if (sel && !desc.empty()) {
+    float ca = an;
+    style::roundRect(u, colX - 8 * s, cardY, cardW, cardH, 8 * s, Color{0.04f, 0.05f, 0.08f, 0.78f * ca});
+    style::roundRect(u, colX - 8 * s, cardY + 6 * s, std::max(2.f, 2.5f * s), cardH - 12 * s, 1.2f * s, style::cyan());
+    float dy = cardY + 8 * s; for (auto& l : desc) { u.text(colX + 6 * s, dy, l, bodyS, Color{0.90f, 0.93f, 0.97f, 1}, false); dy += u.lineH(bodyS); }
+  }
+  // footer
+  u.textR(W - 22 * s, H - u.lineH(bodyS) - 12 * s, "Up / Down  move     Enter  select     Esc  back", bodyS * 0.9f, Color{0.62f, 0.68f, 0.76f, 1}, false);
+  u.textR(W - 22 * s, H - 2 * u.lineH(bodyS) - 16 * s, "Tommy D Productions", bodyS * 0.9f, Color{0.45f, 0.52f, 0.60f, 1}, false);
+}
+
 void Game::drawMenus(RenderList& rl) {
   UIDraw u(rl); float s = u.s;
   menuLayout = MenuLayout();
@@ -500,16 +576,17 @@ void Game::drawMenus(RenderList& rl) {
   Menu& m = menus.back();
   if (m.build) { int idx = m.index; m.items.clear(); m.build(m); m.index = idx; }
   bool main = m.kind == 2, chars = m.kind == 3;
+  if (main) { drawMainMenu(u, m); return; }
   if (!main && !chars) u.rect(0, 0, u.W, u.H, Color{0, 0, 0, 0.45f * menuAnim(m)});
   if (m.cols > 0) { drawGridMenu(u, m); return; }
   if (m.kind == 10) { drawPowerSpin(u, m); return; }  // Vault: power spinner
   float pw = chars ? std::min(u.W * 0.46f, 250 * s) : std::min(u.W - 30, (m.wide ? 330.f : 290.f) * s);
   float px = chars ? 16 * s / 2 : (u.W - pw) / 2;
   float titleS = main ? std::min(s * 2.0f, (pw - 20) / (8 * (float)m.title.size())) : s * 1.4f, bodyS = s * 0.75f, itemS = s * 0.95f;
-  std::vector<std::string> body = u.wrap(m.body, pw - 16 * s / 2, bodyS);
+  std::vector<std::string> body = u.wrap(m.body, pw - 20 * s, bodyS);
   float itemH = u.lineH(itemS) + 5 * s;
   const MenuItem* sel = m.items.empty() ? nullptr : &m.items[std::max(0, std::min((int)m.items.size() - 1, m.index))];
-  std::vector<std::string> desc = sel ? u.wrap(sel->desc, pw - 16 * s / 2, bodyS) : std::vector<std::string>();
+  std::vector<std::string> desc = sel ? u.wrap(sel->desc, pw - 20 * s, bodyS) : std::vector<std::string>();
   bool ctl = m.kind == 9; if (ctl) itemS = s * 0.8f;
   float headH = 8 * s + u.lineH(titleS) + 4 * s + body.size() * u.lineH(bodyS) + 6 * s + (ctl ? u.lineH(bodyS) + 2 * s : 0);
   itemH = u.lineH(itemS) + 5 * s;
@@ -552,7 +629,7 @@ void Game::drawMenus(RenderList& rl) {
     else if (!it.right.empty()) u.textR(px + pw - 8 * s / 2, y + 2.5f * s, it.right, itemS * 0.85f, on ? GOLD : GREY);
     y += itemH;
   }
-  if ((int)m.items.size() > rows) u.textR(px + pw - 6, py + 8 * s, std::to_string(m.index + 1) + "/" + std::to_string(m.items.size()), bodyS, GREY);
+  if ((int)m.items.size() > rows) u.textR(px + pw - (m.noBack ? 8 : 28) * s, py + 9 * s, std::to_string(m.index + 1) + "/" + std::to_string(m.items.size()), bodyS, GREY);
   y += 4 * s;
   u.rect(px + 8, y - 2 * s, pw - 16, std::max(1.f, s / 2), Color{0.35f, 0.3f, 0.5f, 1});
   for (auto& l : desc) { u.text(px + 8 * s / 2 + 4, y, l, bodyS, Color{0.9f, 0.88f, 0.75f, 1}); y += u.lineH(bodyS); }
@@ -711,25 +788,36 @@ void Game::drawHud(RenderList& rl) {
   }
   if (mode == Mode::Reveal) { if (bigT > 0) goto big; return; }
   {
-    // top-left: coins and progress
-    style::roundRect(u, 6, 6, 150 * s, u.lineH(s) * 3.6f + 6 * s, 6 * s, style::bg());  // Vault
-    u.text(6 + 4 * s, 6 + 3 * s, "COINS " + std::to_string(p.coins) + "  KEYS " + std::to_string(p.keys), s, GOLD);
-    u.text(6 + 4 * s, 6 + 3 * s + u.lineH(s), "Eaten: " + std::to_string(p.eaten), s, needEatT > 0 && ((int)(realTime * 6)) % 2 ? RED : PEA);  // super-attack fuel (E)
-    float ly0 = 6 + 3 * s + u.lineH(s);
-    u.text(6 + 4 * s, ly0 + u.lineH(s), std::string(adventure ? (crazy ? "CRAZY" : "ADVENTURE") : "SANDBOX") + "  smashed " + std::to_string(p.smashCount) + "  rainbows " + std::to_string(p.rainbows), small, WHITE);
-    std::string line3 = kaiju.def().name + (lookOf(kaiju.def().id).shiny ? "  SHINY" : "");
-    if (hasInfinity("mind")) line3 += "  facing " + std::to_string((int)(kaiju.facing * 180.f / PI)) + "  pace " + fmt1(kaiju.speedNow);
-    if (!adventure && !p.schoolUnlocked) line3 += "  | school " + std::to_string(prog::schoolProgress(p)) + "/" + std::to_string((int)C.schoolUnlockCount) + " landmarks";
-    u.text(6 + 4 * s, ly0 + u.lineH(s) + u.lineH(small), line3, small, GREY);
-    // health bar
-    float bw = 150 * s, bh = 6 * s, bx = u.W / 2 - bw / 2, by = 6 * s;
+    // top-left: one compact status card (coins / keys / eaten, then the objective line and the kaiju name)
+    {
+      float pad = 8 * s, gap = 14 * s, x0 = 8 * s, y0 = 8 * s;
+      std::string sCoins = "COINS " + std::to_string(p.coins), sKeys = "KEYS " + std::to_string(p.keys), sEat = "EATEN " + std::to_string(p.eaten);
+      std::string l2 = std::string(adventure ? (crazy ? "CRAZY" : "ADVENTURE") : "SANDBOX") + "   smashed " + std::to_string(p.smashCount) + "   rainbows " + std::to_string(p.rainbows);
+      std::string l3 = kaiju.def().name + (lookOf(kaiju.def().id).shiny ? "   SHINY" : "");   // PR6: shiny tag
+      if (hasInfinity("mind")) l3 += "   facing " + std::to_string((int)(kaiju.facing * 180.f / PI)) + "   pace " + fmt1(kaiju.speedNow);   // PR6: Mind-stone readout
+      if (!adventure && !p.schoolUnlocked) l3 += "   school " + std::to_string(prog::schoolProgress(p)) + "/" + std::to_string((int)C.schoolUnlockCount) + " landmarks";
+      float w1 = u.textW(sCoins, s) + u.textW(sKeys, s) + u.textW(sEat, s) + 2 * gap;
+      float cw = std::max({w1, u.textW(l2, small), u.textW(l3, small)}) + 2 * pad, ch = u.lineH(s) + 2 * u.lineH(small) + 2 * pad + 2 * s;
+      style::roundRect(u, x0, y0, cw, ch, 10 * s, Color{0.04f, 0.05f, 0.08f, 0.72f});
+      style::roundRect(u, x0 + 4 * s, y0 + 8 * s, std::max(2.f, 2.5f * s), ch - 16 * s, 1.2f * s, uiAccent());
+      float tx = x0 + pad + 3 * s, ty = y0 + pad;
+      u.text(tx, ty, sCoins, s, GOLD); tx += u.textW(sCoins, s) + gap;
+      u.text(tx, ty, sKeys, s, CYAN); tx += u.textW(sKeys, s) + gap;
+      u.text(tx, ty, sEat, s, needEatT > 0 && ((int)(realTime * 6)) % 2 ? RED : PEA);  // super-attack fuel (E)
+      ty += u.lineH(s) + 2 * s;
+      u.text(x0 + pad + 3 * s, ty, l2, small, WHITE); ty += u.lineH(small);
+      u.text(x0 + pad + 3 * s, ty, l3, small, GREY);
+    }
+    // health bar: rounded pill, colour shifts green -> amber -> orange as it drops, outlined in the kaiju's accent colour
+    float bw = 170 * s, bh = 9 * s, bx = u.W / 2 - bw / 2, by = 8 * s;
     float k = clampf(kaiju.hp / std::max(1.f, kaiju.maxHp()), 0, 1);
-    u.rect(bx - 2, by - 2, bw + 4, bh + 4, Color{0, 0, 0, 0.6f});
-    Color hc = k > 0.5f ? mixColor(hexColor(0xffe03a), hexColor(0x4cd964), (k - 0.5f) * 2) : mixColor(hexColor(0xff9a1f), hexColor(0xffe03a), k * 2);
-    u.rect(bx, by, bw * k, bh, kaiju.hurtT > 0 ? WHITE : hc);
     Color acc = uiAccent();
-    u.frame(bx - 2, by - 2, bw + 4, bh + 4, acc, std::max(1.f, s / 2));  // frame in the kaiju's own accent colour
-    u.textR(bx - 4 * s, by - 2 * s, "HP", small, WHITE);
+    style::roundRect(u, bx - 2 * s, by - 2 * s, bw + 4 * s, bh + 4 * s, (bh + 4 * s) / 2, Color{acc.r, acc.g, acc.b, 0.55f});
+    style::roundRect(u, bx - 1 * s, by - 1 * s, bw + 2 * s, bh + 2 * s, (bh + 2 * s) / 2, Color{0.03f, 0.04f, 0.07f, 0.88f});
+    Color hc = k > 0.5f ? mixColor(hexColor(0xffe03a), hexColor(0x4cd964), (k - 0.5f) * 2) : mixColor(hexColor(0xff9a1f), hexColor(0xffe03a), k * 2);
+    if (k > 0) { float fw = std::max(bh, bw * k); style::roundRect(u, bx, by, fw, bh, bh / 2, kaiju.hurtT > 0 ? WHITE : hc);
+                 style::roundRect(u, bx + bh * 0.4f, by + 1 * s, std::max(0.f, fw - bh * 0.8f), std::max(1.f, bh * 0.25f), 0, Color{1, 1, 1, 0.22f}); }  // soft highlight
+    u.textR(bx - 8 * s, by - 1 * s, "HP", small, WHITE);
     float y = by + bh + 4 * s;
     if (hasLook(kaiju.def().id)) {  // XP / growth bar (accent colour)
       float g = growthFrac(), xb = bw * 0.8f, xx = u.W / 2 - xb / 2, xh = 3 * s;

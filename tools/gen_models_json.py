@@ -13,7 +13,7 @@ KR = "assets/kenney/kenney_city-kit-roads/Models/GLB format/"
 KP = "assets/kenney/kenney_mini-characters/GLB format/"
 A = "CharacterArmature|"
 # Quaternius clip sets
-BIG = {"idle": A+"Idle", "walk": A+"Walk", "run": A+"Run", "attack": A+"Punch", "death": A+"Death", "hit": A+"HitReact",
+BIG = {"idle": A+"TZ_Idle", "walk": A+"Walk", "run": A+"Run", "attack": A+"Punch", "death": A+"Death", "hit": A+"HitReact",
        "eat": A+"Weapon", "stun": A+"HitReact", "jump": A+"Jump", "cheer": A+"Wave"}
 SMALL = {"idle": A+"Idle", "walk": A+"Walk", "run": A+"Walk", "attack": A+"Bite_Front", "death": A+"Death", "hit": A+"HitRecieve",
          "eat": A+"Bite_Front", "stun": A+"HitRecieve", "jump": A+"Jump", "cheer": A+"Dance"}
@@ -45,11 +45,19 @@ monsters = [
   ("roborumble",    "Mech_Fox.glb",         16, MECH,   []),
 ]
 # Three more meshes so at least 16 heroes have a model, and the on-screen name matches that mesh
-# (Bee Mech, Blue Demon, Block Kid). Clamshell and Slinkysnoot stay on their crab / serpent rigs.
+# (Bee Mech, Blue Demon, Block Kid). Clamshell (crab) and Slinkysnoot (serpent) use the two models we author ourselves
+# with tools/gen_creatures.py (assets/polypizza/Crab.glb, Serpent.glb).
 for id, f, h, clips, recolor in monsters:
     e = {"height": h, "fallback": "monster", "clips": clips}
     if recolor: e["recolor"] = recolor
     add(id, PP + f, **e)
+CRAB = {"idle": "CrabArmature|Idle", "walk": "CrabArmature|Walk", "run": "CrabArmature|Run", "attack": "CrabArmature|Attack", "death": "CrabArmature|Death",
+        "hit": "CrabArmature|Hit", "eat": "CrabArmature|Eat", "stun": "CrabArmature|Stun", "jump": "CrabArmature|Jump", "cheer": "CrabArmature|Cheer"}
+SERPENT = {k: v.replace("CrabArmature", "SerpentArmature") for k, v in CRAB.items()}
+add("clamshell", PP + "Crab.glb", height=10, fallback="monster", clips=CRAB,
+    recolor=[rc("Crab_Main", "#f0e0c0"), rc("Crab_Secondary", "#2fa89a"), rc("Crab_Belly", "#c8b890")])
+add("slinkysnoot", PP + "Serpent.glb", height=16, fallback="monster", clips=SERPENT,
+    recolor=[rc("Snoot_Main", "#ff9a1f"), rc("Snoot_Secondary", "#9ad04a"), rc("Snoot_Belly", "#ffd8a0")])
 add("clanksworth", PP + "Mech_Bee.glb", height=16, fallback="monster", clips=MECH)
 add("stompasaurus", PP + "BlueDemon.glb", height=15, fallback="monster", clips=BIG,
     recolor=[rc("BlueDemon_Main", "#3a6adf"), rc("BlueDemon_Secondary", "#e0a030")])

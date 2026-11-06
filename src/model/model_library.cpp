@@ -33,10 +33,9 @@ static bool limbClipLeavesBind(const Model& m, int clip) {
         if (m.nodes[i].name == n) out.push_back((int)i);
     return out;
   };
-  // Arms define a T-pose. Mechs have no arms; their stuck pose is the unmoved legs.
-  const std::vector<int> arms = collect({"UpperArm.L", "UpperArm.R", "arm-left", "arm-right"});
-  const std::vector<int> legs = collect({"UpperLeg.L", "UpperLeg.R", "leg-left", "leg-right"});
-  const std::vector<int>& limbs = !arms.empty() ? arms : legs;
+  // Arms define a T-pose. A model with no arms (the mechs) has no T-pose to hide: their bind pose already is a standing mech,
+  // so their own Idle is right (swapping in the walk cycle made them march on the spot whenever they stood still).
+  const std::vector<int> limbs = collect({"UpperArm.L", "UpperArm.R", "arm-left", "arm-right"});
   if (limbs.empty()) return false;
   const std::vector<Transform> rest = m.restLocals();
   const float dur = std::max(0.f, m.clips[(size_t)clip].duration);

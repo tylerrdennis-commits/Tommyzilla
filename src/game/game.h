@@ -224,7 +224,7 @@ struct Camera { float yaw = 0, pitch = 0.32f, dist = 34, idle = 99, shake = 0; V
 struct Kaiju {
   int monster = 0; Vec3 pos; float facing = PI, twist = 0, lift = 0, hp = 100, hurtT = 0;
   Attack at; std::vector<float> cooldowns; bool charging = false; float charge = 0; int chargeSlot = -1; Action chargeBtn = A_SLOT1;
-  int held = -1; float walkPhase = 0, speedNow = 0; bool inWater = false; Camera cam;
+  int held = -1; float walkPhase = 0, speedNow = 0; bool sprinting = false, animRun = false; bool inWater = false; Camera cam;
   int player = 0;  // 0 = P1, 1 = P2 (travels with the object through the co-op swaps; keys its model animator)
   std::vector<Projectile> projectiles; float spawnGlow = 0;
   std::vector<Bolt> bolts; std::vector<EatTween> eats; float gloveDist = 0; Vec3 gloveLast;
@@ -492,6 +492,7 @@ struct Game {
   void prompt(const std::string& title, const std::string& body, std::vector<MenuItem> items, bool noBack = true);
   void updateMenus(const InputState& in, float dt);
   void drawMenus(RenderList& rl);
+  void drawMainMenu(UIDraw& u, Menu& m);  // modern left-aligned title screen
   void drawGridMenu(UIDraw& u, Menu& m);  // store icon grid (Menu::cols > 0)
   void drawHud(RenderList& rl);
   // Vault: menu style + bottom HUD bar (src/ui/ui_style.*, src/ui/hud_bar.*)

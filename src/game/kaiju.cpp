@@ -258,6 +258,7 @@ void Kaiju::update(float dt, const InputState& in) {
     if (cam.idle > C.camAutoFollowDelay && in.moveY > -0.3f) cam.yaw += wrapAngle((facing + PI) - cam.yaw) * std::min(1.f, C.camAutoFollowRate * dt);
   }
   speedNow = mag * speed;
+  sprinting = in.held[A_SPRINT] && mag > 0.05f;   // the model's run clip follows the Shift / L3 intent (not a speed threshold)
   if (G->gloveEquipped() && G->mode == Mode::Play) {  // secret glove: one pulse per gloveStep metres walked, nothing while standing still
     float moved = dist2D(pos.x, pos.z, gloveLast.x, gloveLast.z);
     if (moved < 20) gloveDist += moved;  // ignore teleports / respawns

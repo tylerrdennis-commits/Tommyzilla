@@ -20,6 +20,8 @@ class Animator {
   const Pose& pose() const { return pose_; }
   int current() const { return cur_.clip; }
   float time() const { return cur_.t; }
+  float phase() const;                 // 0..1 position inside the current clip (for phase-matched walk <-> run switches)
+  void setPhase(float p);
   float fadeWeight() const { return fadeDur_ > 0 ? clampf(fadeT_ / fadeDur_, 0, 1) : 1.f; }  // weight of the current clip
   bool finished() const;               // non-looping clip reached its end
  private:

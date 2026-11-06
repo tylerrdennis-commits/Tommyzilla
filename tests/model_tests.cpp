@@ -88,6 +88,7 @@ static void testManifestModels(ModelLibrary& lib) {
   SECTION("manifest: every mapped model loads");
   const Expect ex[] = {
       {"tommyzilla", true, false, true, "glb"}, {"mossback", true, false, true, "glb"}, {"sparkleraptor", true, false, true, "glb"},
+      {"clamshell", true, false, true, "glb"}, {"slinkysnoot", true, false, true, "glb"},   // our own generated crab + serpent (tools/gen_creatures.py)
       {"the_bulk", true, false, true, "glb"},   {"cop", true, false, true, "glb"},       {"soldier", true, false, true, "glb"},
       {"police_car", false, true, false, "glb"}, {"ambulance", false, true, false, "glb"}, {"fire_truck", false, true, false, "fbx"},
       {"tank", false, false, false, "glb"},      {"police_heli", false, false, false, "glb"},
@@ -451,8 +452,8 @@ static void testLimbsNotTPose(ModelLibrary& lib) {
     std::printf("  samples %d spanX %.3f..%.3f (bind %.3f)\n", seen, mn, mx, bindSpan);
     return std::make_tuple(seen, mn, mx);
   };
-  auto stood = spanRange(90);  // standing still: walk cycle, not a frozen bind pose
-  CHECK(std::get<0>(stood) > 0 && std::get<1>(stood) < bindSpan - 0.5f && std::get<2>(stood) - std::get<1>(stood) > 0.4f);
+  auto stood = spanRange(90);  // standing still: our TZ_Idle (arms relaxed at the sides + breathing/sway), not the bind pose and not a walk in place
+  CHECK(std::get<0>(stood) > 0 && std::get<2>(stood) < bindSpan - 0.15f && std::get<2>(stood) - std::get<1>(stood) > 0.05f && std::get<2>(stood) - std::get<1>(stood) < 0.8f);
   g->openCharacterSelect(true);
   g->updateMenus(none, 1.f / 60);
   auto menu = spanRange(90);  // character menu: the cycle keeps playing

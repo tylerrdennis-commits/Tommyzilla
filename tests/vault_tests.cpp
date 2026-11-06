@@ -55,8 +55,25 @@ static void testGameMenus() {
   g->mode = Mode::Ending; g->ending.crazyEnding = true; g->vaultTick(); CHECK(g->vault.cheatsUnlocked);
   g->mode = Mode::Play; g->vault.god = true; g->kaiju.hp = 1; g->vaultTick(); CHECK(g->kaiju.hp >= g->kaiju.maxHp());
 }
+static void testVectorText() {   // proportional anti-aliased vector font (src/ui/font_vec.h)
+  RenderList rl; rl.width = 1280; rl.height = 720; UIDraw u(rl);
+  CHECK(u.textW("iiii", 2) < u.textW("WWWW", 2));                        // proportional
+  CHECK(u.textW("", 2) == 0.f && u.textW("Hello", 4) > 1.9f * u.textW("Hello", 2) && u.textW("Hello", 4) < 2.1f * u.textW("Hello", 2));
+  bool was = u.chunky; u.chunky = true; float bold = u.textW("Smash", 2); u.chunky = false; CHECK(bold > u.textW("Smash", 2)); u.chunky = was;   // Bold is wider
+  CHECK(u.textW("one\ntwo words", 2) == u.textW("two words", 2));        // width of the longest line
+  for (float w : {120.f, 200.f, 340.f}) {                                // wrapping respects the width (except an unbreakable word)
+    auto L = u.wrap("Free smashing with your own coins, keys and upgrades. Unlock moves, skill chests and Ruth King Elementary.", w, 1.5f);
+    CHECK(L.size() >= 2); for (auto& s : L) CHECK(u.textW(s, 1.5f) <= w + 0.5f);
+  }
+  size_t n0 = rl.ui.size(); u.text(10, 10, "Tommyzilla 123 !?", 2, Color{1, 1, 1, 1}, true);
+  CHECK(rl.ui.size() > n0 && (rl.ui.size() - n0) % 3 == 0);               // whole triangles
+  bool finite = true, fringe = false, solid = false;
+  for (size_t i = n0; i < rl.ui.size(); i++) { const UIVertex& v = rl.ui[i]; if (!std::isfinite(v.x) || !std::isfinite(v.y)) finite = false; if (v.a == 0) fringe = true; if (v.a > 0.9f) solid = true; }
+  CHECK(finite && fringe && solid);                                       // alpha-faded AA fringe + solid fill
+  size_t n1 = rl.ui.size(); u.text(10, 10, "\x01\xff~", 2, Color{1, 1, 1, 1}, false); CHECK(rl.ui.size() > n1);   // unsupported chars fall back to '?'
+}
 int main() {
-  testPowers(); testGameMenus();
+  testPowers(); testGameMenus(); testVectorText();
   // motion: 150-300ms ease-out, reduced motion = instant
   CHECK(style::kAnimSec >= 0.15f && style::kAnimSec <= 0.3f);
   CHECK(style::easeOut(0) == 0.f && style::easeOut(1) == 1.f && style::easeOut(2) == 1.f && style::easeOut(-1) == 0.f);

@@ -26,9 +26,9 @@ void Game::drawHudBar(UIDraw& u) {
   hudbar::Layout L = hudbar::layout(u.W, u.H, s);
   style::roundRect(u, L.bar.x, L.bar.y, L.bar.w, L.bar.h, 8 * s, style::bg());
   style::roundRect(u, L.bar.x + 8 * s, L.bar.y + 1, L.bar.w - 16 * s, std::max(1.f, s / 2), 0, Color{0.23f, 0.84f, 1.f, 0.5f});
-  // concise info: kaiju name, coins, eaten (super-attack fuel)
+  // the kaiju's name (coins / keys / eaten live in the top-left status card)
   float ty = L.bar.y + (L.bar.h - u.lineH(s)) / 2;
-  std::string info = kaiju.def().name + "   COINS " + std::to_string(p.coins) + "   EATEN " + std::to_string(p.eaten);
+  std::string info = kaiju.def().name;
   float maxW = L.btn[0].x - L.bar.x - 16 * s, ts = s;
   if (u.textW(info, ts) > maxW) ts = std::max(small, ts * maxW / u.textW(info, ts));
   u.text(L.bar.x + 8 * s, ty, info, ts, style::text());

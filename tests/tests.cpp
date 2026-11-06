@@ -944,6 +944,20 @@ static void testModelHooks() {
   // the walk clip + an attack (trigger bumps each attack)
   InputState walk; walk.moveY = 1; run(*g, 0.6f, walk); g->frame(1.f / 60, walk);
   rl = renderOnce(*g); k = cat.byKey(rl, modelKey(MK_KAIJU, 0)); CHECK(k && (k->clip == MC_WALK || k->clip == MC_RUN));
+  {  // foot-matched gait: a speed boost is still a WALK; Shift is a RUN; playback follows ground speed, size and the model's own height
+    Kaiju& K = g->kaiju; InputState w; w.moveY = 1; run(*g, 1.0f, w);
+    float H = 1.f; { Vec3 lo, hi; if (cat.bounds(0, lo, hi) && hi.y > lo.y) H = hi.y - lo.y; }   // the fake model is 1 unit tall: scale the kaiju up so walking speeds clear the idle threshold
+    K.shrinkK = 16.f;
+    float sc = K.scale() * K.shrinkK, walkNat = 1.10f * H * sc, runNat = 3.18f * H * sc;
+    K.sprinting = false; K.animRun = false; K.speedNow = 1.3f * walkNat;
+    rl = renderOnce(*g); k = cat.byKey(rl, modelKey(MK_KAIJU, 0)); CHECK(k && k->clip == MC_WALK && std::fabs(k->speed - 1.3f) < 0.01f);
+    InputState sp; sp.moveY = 1; sp.held[A_SPRINT] = true; run(*g, 0.3f, sp);
+    CHECK(K.sprinting); K.speedNow = 2.5f * walkNat;
+    rl = renderOnce(*g); k = cat.byKey(rl, modelKey(MK_KAIJU, 0)); CHECK(k && k->clip == MC_RUN && std::fabs(k->speed - clampf(K.speedNow / runNat, 0.5f, 2.2f)) < 0.01f);
+    K.sprinting = false; K.animRun = false; K.shrinkK = 6.4f; K.speedNow = 3.f * 1.10f * H * K.scale() * K.shrinkK;   // a tiny hatchling at that pace would look like a hovercraft on the walk clip
+    rl = renderOnce(*g); k = cat.byKey(rl, modelKey(MK_KAIJU, 0)); CHECK(k && k->clip == MC_RUN);
+    K.shrinkK = 1.f; run(*g, 0.3f);
+  }
   uint16_t s0 = g->kaiju.attackSeq; tap(*g, A_CLAW); run(*g, 0.05f);
   rl = renderOnce(*g); k = cat.byKey(rl, modelKey(MK_KAIJU, 0));
   CHECK(g->kaiju.attackSeq == (uint16_t)(s0 + 1) && k && k->clip == MC_ATTACK && !k->loop && k->trigger == g->kaiju.attackSeq && k->fit > 0);

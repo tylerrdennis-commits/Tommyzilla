@@ -1,5 +1,6 @@
 #include "animator.h"
 #include <algorithm>
+#include <cmath>
 namespace tz {
 namespace mdl {
 
@@ -39,6 +40,15 @@ bool Animator::play(int clip, bool loop, float fade, float speed, bool restart) 
 }
 bool Animator::play(const std::string& name, bool loop, float fade, float speed) { return m_ && play(m_->findClip(name), loop, fade, speed); }
 void Animator::stop(float fade) { prev_ = cur_; cur_ = Layer(); fadeDur_ = fade; fadeT_ = 0; }
+float Animator::phase() const {
+  if (!m_ || cur_.clip < 0) return 0;
+  float d = m_->clips[(size_t)cur_.clip].duration;
+  return d > 0 ? std::fmod(cur_.t, d) / d : 0;
+}
+void Animator::setPhase(float p) {
+  if (!m_ || cur_.clip < 0) return;
+  cur_.t = clampf(p, 0, 1) * m_->clips[(size_t)cur_.clip].duration;
+}
 bool Animator::finished() const {
   if (!m_ || cur_.clip < 0 || cur_.loop) return false;
   return cur_.t >= m_->clips[(size_t)cur_.clip].duration;

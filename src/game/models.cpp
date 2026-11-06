@@ -57,10 +57,9 @@ bool Game::monsterModel(RenderList& rl, const MonsterDef& m, const Vec3& pos, fl
 bool Game::kaijuModel(RenderList& rl, float time) {
   (void)time;
   if (!modelsOn()) return false;
-  const Kaiju& k = kaiju; const MonsterDef& d = k.def();
+  const Kaiju& k = kaiju;
   ModelReq r; r.key = modelKey(MK_KAIJU, (uint32_t)k.player);  // P1 / P2 animate independently
   const MoveDef* m = k.at.move >= 0 ? &T.moves[k.at.move] : nullptr;
-  float walk = C.kaijuSpeed * d.speed;
   if (k.hp <= 0) { r.clip = MC_DEATH; r.loop = false; }
   else if (!k.eats.empty()) { r.clip = MC_EAT; r.loop = false; r.trigger = (uint16_t)k.attackSeq; r.fit = std::max(0.35f, C.eatTweenTime + 0.15f); }
   else if (m) {
@@ -69,10 +68,21 @@ bool Game::kaijuModel(RenderList& rl, float time) {
     r.clip = roar ? MC_CHEER : stomp ? MC_JUMP : MC_ATTACK; r.loop = false; r.trigger = k.attackSeq; r.fit = std::max(0.25f, k.at.dur);
   } else if (k.hurtT > 0) { r.clip = MC_HIT; r.loop = false; r.trigger = k.hitSeq; }
   else if (k.speedNow > 1.5f) {
-    bool run = k.speedNow > walk * 1.25f;
-    r.clip = run ? MC_RUN : MC_WALK;
-    r.speed = clampf(k.speedNow / (run ? walk * C.kaijuSprint : walk), 0.6f, 1.6f);
-  } else r.clip = MC_IDLE;
+    // Foot planting: play the gait at the rate that matches the ground speed. Measured from the clips' foot motion, the
+    // CharacterArmature Walk / Run cover about 1.10 / 3.18 model heights per second at 1x (a model's height comes from the
+    // manifest, ~16 for most kaiju; our crab and serpent clips were authored to the same rates). The old code used the monster's base speed, so a store speed upgrade turned a walk into a "run", sprinting
+    // played the run clip too fast (feet skating), and small hatchlings moved like hovercraft. Run = Shift held, or so fast
+    // for this size that a walk would look hurried (with hysteresis so it never flickers).
+    int ma = modelAsset(lookedDef(k.monster).id);
+    Vec3 blo, bhi; float H = (ma >= 0 && models && models->bounds(ma, blo, bhi) && bhi.y > blo.y) ? bhi.y - blo.y : 16.f;   // this model's rest height (manifest "height": the crab is 10, the serpent 16)
+    float sc = std::max(0.15f, k.scale() * k.shrinkK), walkNat = 1.10f * H * sc, runNat = 3.18f * H * sc;
+    float ratio = k.speedNow / walkNat;
+    bool run = k.sprinting || ratio > (k.animRun ? 1.8f : 2.1f);
+    kaiju.animRun = run;
+    bool runClip = ma >= 0 && models && models->hasDistinctRun(ma);  // some models only have a Walk: a "run" is just a faster walk
+    if (run && runClip) { r.clip = MC_RUN; r.speed = clampf(k.speedNow / runNat, 0.5f, 2.2f); }
+    else { r.clip = MC_WALK; r.speed = clampf(k.speedNow / walkNat, 0.5f, run ? 2.6f : 2.0f); }
+  } else { r.clip = MC_IDLE; kaiju.animRun = false; }
   if (k.charging) r.glow = 0.25f + k.charge * 0.5f;
   else if (m && (m->kind == MoveKind::Super || m->shape == MoveShape::Beam)) r.glow = 0.3f;
   if (k.hurtT > 0) { r.mix = hexColor(0xff4040); r.mixK = 0.3f * clampf((k.hurtT - 0.15f) / 0.15f, 0, 1); }  // brief hit flash
@@ -93,6 +103,7 @@ bool Game::bossModel(RenderList& rl, const Boss& b) {
   else { r.clip = MC_WALK; r.speed = 0.8f; }
   if (b.pulse > 0.15f) { r.mix = hexColor(0xffffff); r.mixK = 0.5f; }  // hit flash (he grows with each hit)
   float s = b.scale * (1 + b.pulse * 0.25f);
+  if (r.clip == MC_WALK) r.speed = clampf(C.bossSpeed / (1.10f * 15.f * s), 0.35f, 1.0f);  // foot-matched: a taller Bulk takes longer, slower steps (model height 15 x scale)
   r.world = Mat4::scale(s, s, s) * Mat4::rotY(b.facing) * Mat4::translation(b.pos.x, b.lift, b.pos.z);
   rl.models.push_back(r);
   return true;
@@ -129,7 +140,13 @@ bool Game::unitModel(RenderList& rl, const Unit& u, const Mat4& root) {
     if (u.wreck) { r.clip = MC_DEATH; r.loop = false; }
     else if (time - u.fireT < 0.5f) { r.clip = MC_ATTACK; r.loop = false; r.trigger = (uint16_t)(int)(u.fireT * 8); }
     else if (u.slowT > 0) { r.clip = MC_STUN; r.speed = 0.5f; }
-    else if (u.moving) r.clip = u.type == U_MBOSS ? MC_WALK : MC_RUN;
+    else if (u.moving) {   // foot-matched gait (see kaijuModel): ~1.10 / 3.18 model heights per second at 1x; infantry are 4.2 tall, the Mega Mech 16
+      float spd = (u.type == U_COP ? C.copSpeed : u.type == U_RIOT ? C.copSpeed * 0.75f : u.type == U_FLAME ? C.soldierSpeed * 1.1f : u.type == U_MBOSS ? C.mbossSpeed : C.soldierSpeed) * u.speedK;
+      float h = u.type == U_MBOSS ? 16.f : 4.2f;
+      bool run = u.type != U_MBOSS && spd > 1.9f * 1.10f * h;
+      r.clip = run ? MC_RUN : MC_WALK;
+      r.speed = clampf(spd / ((run ? 3.18f : 1.10f) * h), 0.4f, 1.6f);
+    }
     else r.clip = MC_IDLE;
   } else if (u.wreck) r.tint = Color{0.38f, 0.36f, 0.36f, 1};  // scorched wreck
   if (u.type == U_ARMOR) { r.finish = FIN_CHROME; r.finishT = time; r.mixK = 0; }

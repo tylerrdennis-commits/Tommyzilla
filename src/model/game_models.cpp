@@ -59,7 +59,12 @@ void GameModels::drive(Anim& an, const ModelReq& r, int clip, float dist, bool i
   float spd = r.speed;
   if (clip >= 0 && r.fit > 0) { float d = a->model.clips[(size_t)clip].duration; if (d > 0) spd = d / r.fit; }
   if (clip != an.clip || (!r.loop && r.trigger != an.trigger && !isShared)) {
-    if (clip >= 0) an.a.play(clip, r.loop, an.started ? 0.18f : 0.f, spd, true); else an.a.stop(0.2f);
+    // walk <-> run keeps the stride phase, so the feet don't pop (swap legs) at the switch
+    bool loco = an.started && r.loop && an.clip >= 0 && clip >= 0 && (an.logical == MC_WALK || an.logical == MC_RUN) && (r.clip == MC_WALK || r.clip == MC_RUN);
+    float keepPhase = loco ? an.a.phase() : -1.f;
+    if (clip >= 0) an.a.play(clip, r.loop, an.started ? (loco ? 0.12f : 0.18f) : 0.f, spd, true); else an.a.stop(0.2f);
+    if (keepPhase >= 0) an.a.setPhase(keepPhase);
+    an.logical = r.clip;
     if (!an.started && isShared && clip >= 0) an.a.update(r.phase * a->model.clips[(size_t)clip].duration);  // crowd phase offset
     an.clip = clip; an.trigger = r.trigger; an.started = true;
     an.a.update(0); an.acc = 0; an.lastUpdate = frame_; stats.updated++;

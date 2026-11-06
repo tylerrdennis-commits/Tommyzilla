@@ -1,0 +1,8 @@
+The UI text in Tommyzilla City Smash is drawn from vector glyph outlines derived from the Poppins typeface
+(Poppins Medium and Poppins Bold), converted to triangle data by tools/gen_font_vec.py into src/ui/font_vec.h.
+
+Poppins is Copyright (c) Indian Type Foundry (info@indiantypefoundry.com) and is licensed under the
+SIL Open Font License, Version 1.1 -- https://openfontlicense.org
+
+NOTE FOR THE REPO OWNER: before publishing or redistributing the game, replace this file with the complete, official
+OFL.txt that ships with Poppins (https://github.com/itfoundry/Poppins), which is the license text the OFL asks you to include.
