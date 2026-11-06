@@ -82,6 +82,7 @@ bool Kaiju::tryStart(int mi) {
     Vec3 f = fwd(), mo = mouth();
     float reach = m.reach * prog::rangeMult(G->P().rangeLvl) * vmult(*this, vpow::ST_RANGE) * std::max(1.f, scale()) * (G ? G->stoneRangeMul((int)m.kind) : 1.f);
     Vec3 tgt = pos + f * reach; tgt.y = 0;
+    Vec3 air; if (G->aimAir(air) >= 0) tgt = air;  // aim at a flying enemy when one is under the crosshair
     Vec3 dir = tgt - mo; float l = length(dir); dir = dir * (1.f / std::max(0.01f, l));
     Projectile p; p.move = mi; p.pos = mo + f * 1.5f; p.t = 0; p.lob = false;
     p.vel = dir * m.speed; p.life = l / std::max(1.f, m.speed) + 0.4f;
@@ -101,6 +102,7 @@ bool Kaiju::tryStart(int mi) {
     Vec3 f = fwd(), mo = mouth();
     Projectile p; p.move = mi; p.pos = mo + f * 2; p.t = 0; p.lob = m.shape == MoveShape::Lob;
     p.vel = p.lob ? f * m.speed + Vec3(0, 16, 0) : f * m.speed + Vec3(0, -3, 0);
+    Vec3 air; if (!p.lob && G->aimAir(air) >= 0) { p.vel = normalize(air - p.pos) * m.speed; }
     p.life = m.reach * (G ? G->stoneRangeMul((int)m.kind) : 1.f) / std::max(1.f, m.speed) + 1.0f;
     projectiles.push_back(p);
   }
@@ -108,7 +110,7 @@ bool Kaiju::tryStart(int mi) {
 }
 void Kaiju::fireBlaster(int mi) {
   const MoveDef& m = T.moves[mi];
-  Vec3 aim; G->aimTarget(aim);
+  Vec3 aim; int ap = G->aimTarget(aim); Vec3 air; if (ap < 0 && G->aimAir(air) >= 0) aim = air;  // soft lock on helicopters / jets
   Vec3 h = hand();
   Vec3 flat(aim.x - pos.x, 0, aim.z - pos.z);
   if (length(flat) > 2) facing = std::atan2(flat.x, flat.z);  // turn to face the shot
@@ -188,7 +190,7 @@ HitResult Kaiju::hit(int mi, float cx, float cy, float cz, float r, int props, f
   }
   G->people.pop(cx, cz, r);
   G->people.knock(cx, cz, r + 3, imp * 0.4f * (m.id == "honk" ? 2.5f : 1.f));
-  G->enemies.hitArea(cx, cz, r, mi, false);
+  G->enemies.hitArea(cx, cz, r, mi, false, cy);
   if (m.slows) G->enemies.slowArea(cx, cz, r, 4);
   G->world.pushFerry(cx, cz, r, imp * 0.6f);
   G->bodies.inRadius(cx, cz, r, [&](int i, float) {
@@ -235,7 +237,7 @@ void Kaiju::update(float dt, const InputState& in) {
   float inv = S.invertY ? -1.f : 1.f, ms = C.camMouseSpeed * S.mouseSens;
   cam.yaw -= in.lookX * C.camStickSpeed * dt + in.mouseDX * ms;
   cam.pitch += (in.lookY * C.camStickSpeed * 0.6f * dt + in.mouseDY * ms) * inv;
-  cam.pitch = clampf(cam.pitch, -0.15f, 1.2f);
+  cam.pitch = clampf(cam.pitch, -0.5f, 1.2f);  // look up to shoot helicopters
   cam.dist = clampf(cam.dist - in.wheel * 3, 18, 70);
   cam.idle = lookActive ? 0 : cam.idle + dt;
   if (in.pressed[A_CAMRESET]) { cam.yaw = facing + PI; cam.pitch = 0.32f; }

@@ -871,9 +871,15 @@ void Game::drawHud(RenderList& rl) {
       y += u.lineH(s) + 10 * s;
     }
     // wanted stars
-    if (enemies.policeOn()) {
-      int st = enemies.stars();
-      for (int i = 0; i < 5; i++) u.star(u.W - (5 - i) * 15 * s - 4 * s, 12 * s, 6 * s, i < st ? GOLD : Color{0.2f, 0.2f, 0.25f, 0.8f});
+    if (enemies.policeOn() || (adventure && level.active)) {  // rampage level: kaiju heads (GTA-style wanted level)
+      int st = enemies.stars(); float pulse = 0.75f + 0.25f * std::sin(realTime * (st >= 4 ? 10.f : 5.f));
+      for (int i = 0; i < 5; i++) {
+        bool on = i < st; float cx = u.W - (5 - i) * 24 * s - 6 * s, cy = 17 * s;
+        Color hot = (st >= 4 ? Color{1.f, 0.25f, 0.2f, 1.f} : GOLD);
+        if (on) hot.a = (i == st - 1) ? pulse : 1.f;
+        u.kaijuHead(cx, cy, 9 * s, on ? hot : Color{0.22f, 0.24f, 0.3f, 0.75f}, on ? Color{0.1f, 0.02f, 0.02f, 1.f} : Color{0.1f, 0.1f, 0.14f, 0.8f});
+      }
+      if (st > 0) u.textR(u.W - 5 * 24 * s - 14 * s, 11 * s, "RAMPAGE", small, st >= 4 ? Color{1.f, 0.35f, 0.3f, 1.f} : GOLD);
     }
     // toasts
     float ty = 26 * s;

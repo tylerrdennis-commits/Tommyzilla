@@ -1591,10 +1591,10 @@ static MenuItem* pauseItem(Game& g, const std::string& label) {
   return nullptr;
 }
 static void testSandboxPoliceToggle() {
-  SECTION("sandbox police toggle (default OFF) + adventure police unchanged");
-  { SaveData d; CHECK(!d.settings.police); Json j; CHECK(Json::parse("{}", j)); SaveData r; r.fromJson(j); CHECK(!r.settings.police); }
+  SECTION("sandbox police toggle (default ON since the kaiju rampage meter; can be turned OFF) + adventure police unchanged");
+  { SaveData d; CHECK(d.settings.police); Json j; CHECK(Json::parse("{}", j)); SaveData r; r.fromJson(j); CHECK(r.settings.police); }  // old saves are switched on once
   // default: a fresh sandbox has no police, no heat, no sirens, no wanted stars, whatever you smash
-  auto g = sandboxGame(); clearPeople(*g);
+  auto g = sandboxGame(); clearPeople(*g); g->save.settings.police = false;
   CHECK(!g->save.settings.police && !g->enemies.policeOn());
   for (int k = 0; k < 10; k++) { g->enemies.addHeat(2); g->enemies.heat = std::max(g->enemies.heat, 4.5f); run(*g, 1); }
   CHECK(aliveUnits(*g) == 0 && g->enemies.heat == 0 && !g->enemies.nukeActive && g->loopVol[LOOP_SIREN] == 0);
@@ -2314,13 +2314,39 @@ static void testVersionNotes() {
   CHECK(prog::bossAfter("mech", "mech") != "mech" && prog::bossAfter("crab", "mech") == "crab");
   CHECK(T.levels[10].miniBoss == "supertank" && T.levels[11].miniBoss == "mech");
 }
+static void testAirAndRampage() {
+  SECTION("aim up, radius vs air, rampage, boss enrage");
+  auto g = sandboxGame(); clearPeople(*g);
+  int blaster = T.moveIndex("blaster"), stomp = T.moveIndex("stomp"), claw = T.moveIndex("claw");
+  // a helicopter high in the sky is hit by a blast that goes off beside it, not by one on the ground far below
+  g->enemies.addUnit(U_PHELI); Unit& h = g->enemies.units.back(); h.pos = Vec3(100, 30, 100); h.hitCd = 0; float hp0 = h.hp;
+  g->enemies.hitArea(100, 100, 8, blaster, false, 0);  CHECK(h.hp == hp0);          // ground blast, heli 30 up: miss
+  g->enemies.hitArea(100, 100, 8, blaster, false, 30); CHECK(h.hp < hp0);           // blast at its height: hit (radius damage reaches the sky)
+  h.hitCd = 0; h.hp = 3; g->enemies.hitArea(100, 100, 8, claw, false, 30); CHECK(h.hp == 3);  // a claw swipe still can't hit the sky
+  h.pos.y = 12; h.hitCd = 0; g->enemies.hitArea(100, 100, 10, stomp, false, 0); CHECK(h.hp < 3 || h.wreck);  // low swooping heli feels the stomp
+  // soft lock-on: a heli on the crosshair ray is found, one far off to the side is not
+  g->enemies.units.clear(); g->enemies.addUnit(U_PHELI); Unit& h2 = g->enemies.units.back();
+  Vec3 o, d; g->aimRay(o, d); h2.pos = o + d * 70; Vec3 pt;
+  CHECK(g->aimAir(pt) == 0 && length(pt - h2.pos) < 3);
+  h2.pos = o + d * 70 + Vec3(0, 0, 0) + cross(d, Vec3(0, 1, 0)) * 60; CHECK(g->aimAir(pt) < 0);
+  CHECK(g->kaiju.cam.pitch >= -0.5f);
+  // camera can now tilt well below the old -0.15 limit
+  { InputState in; in.lookY = -1; for (int k = 0; k < 240; k++) g->frame(1.f / 60, in); CHECK(g->kaiju.cam.pitch < -0.3f); }
+  // rampage level shows kaiju heads, not stars
+  { RenderList rl; UIDraw u(rl); size_t n0 = rl.ui.size(); u.kaijuHead(50, 50, 10, Color{1, 1, 1, 1}, Color{0, 0, 0, 1}); CHECK(rl.ui.size() - n0 >= 24 && (rl.ui.size() - n0) % 3 == 0); }
+  // heat builds a rampage level in the sandbox now (police default ON)
+  { SaveData sd; CHECK(sd.settings.police); auto k = sandboxGame(); k->enemies.addHeat(2.5f); CHECK(k->enemies.stars() == 2); }
+  // mini-boss: 40 HP, enrages at half, hits 1.4x harder than the old value
+  { auto b = sandboxGame(); b->enemies.addUnit(U_MBOSS); Unit& m = b->enemies.units.back(); CHECK(m.maxHp >= 40); m.hp = m.maxHp * 0.4f;
+    run(*b, 0.2f); CHECK(b->enemies.units.empty() || b->enemies.units.back().enraged); CHECK(C.bossHardness >= 1.3f); }
+}
 int main() {
   loadData();
   if (const char* only = std::getenv("TZ_ONLY")) {  // quick subset runs while developing: TZ_ONLY=bulk|arc|zoo|ending|...
     std::string o = only;
     if (o == "eggs") testEggTables(); if (o == "spin") testSpinner(); if (o == "growth") testGrowthAndXp(); if (o == "finish") testFinishRender();
     if (o == "ladder") testEnemyLadder(); if (o == "deevo") testDeevo(); if (o == "zoo") testZooAndKey(); if (o == "eat1") testOneButtonEat(); if (o == "siren") testSirenStops(); if (o == "split") testSplitScreen(); if (o == "cam") { testAdventureCamera(); testZooCageBlocks(); } if (o == "arc") testGauntletArc(); if (o == "oldtown") testOldTownQuest(); if (o == "zoogate") testZooGateQuest();
-    if (o == "bulk") testBulkStages(); if (o == "ending") testCreditsAndEnding(); if (o == "wren") testWrenWiring(); if (o == "adventure") testAdventure(); if (o == "police") testSandboxPoliceToggle(); if (o == "controls") testControlsMapping(); if (o == "store") testStoreGrid(); if (o == "ground") testGroundTextures(); if (o == "shader") testShaderKeywords(); if (o == "notes") testVersionNotes();
+    if (o == "bulk") testBulkStages(); if (o == "ending") testCreditsAndEnding(); if (o == "wren") testWrenWiring(); if (o == "adventure") testAdventure(); if (o == "police") testSandboxPoliceToggle(); if (o == "controls") testControlsMapping(); if (o == "store") testStoreGrid(); if (o == "ground") testGroundTextures(); if (o == "shader") testShaderKeywords(); if (o == "notes") testVersionNotes(); if (o == "air") testAirAndRampage();
     std::printf("\n%d passed, %d failed\n", gPass, gFail); return gFail ? 1 : 0;
   }
   testData(); testKaijuGen(); testRexPlay(); testUnlocks(); testEconomy(); testPolice(); testTitan(); testTitanGame(); testCampaign(); testSave(); testSynthAndMeshes();
@@ -2329,7 +2355,7 @@ int main() {
   testSkillSlots(); testSaveSlots(); testAdventureChoice(); testCrazy(); testPoliceAudioAndMovement(); testIntro();
   testEatFuel(); testRoster(); testLevel5Chests(); testProceduralCity(); testHiddenStones(); testChampionPick(); testDifficultyCurve();
   testModelHooks(); testSandboxPoliceToggle(); testControlsMapping(); testStoreGrid(); testGroundTextures(); testShaderKeywords();
-  testEggTables(); testSpinner(); testGrowthAndXp(); testFinishRender(); testEnemyLadder(); testDeevo(); testZooAndKey(); testOneButtonEat(); testAdventureCamera(); testZooCageBlocks(); testSirenStops(); testSplitScreen(); testGauntletArc(); testOldTownQuest(); testZooGateQuest(); testBulkStages(); testCreditsAndEnding(); testWrenWiring(); testVersionNotes();
+  testEggTables(); testSpinner(); testGrowthAndXp(); testFinishRender(); testEnemyLadder(); testDeevo(); testZooAndKey(); testOneButtonEat(); testAdventureCamera(); testZooCageBlocks(); testSirenStops(); testSplitScreen(); testGauntletArc(); testOldTownQuest(); testZooGateQuest(); testBulkStages(); testCreditsAndEnding(); testWrenWiring(); testVersionNotes(); testAirAndRampage();
   std::printf("\n%d passed, %d failed\n", gPass, gFail);
   return gFail ? 1 : 0;
 }

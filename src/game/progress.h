@@ -49,10 +49,11 @@ struct Profile {
   void fromJson(const Json& j);
 };
 struct Settings {
-  bool police = false, policeAsked = false, muted = false, invertY = false;
+  bool police = true, policeAsked = false, muted = false, invertY = false;
   float volume = 0.8f, mouseSens = 1.0f;
   int difficulty = 0, players = 1;  // Titan: Easy/Hard/Insane, 1-2 players
-  bool reducedMotion = false;  // Vault: menu/HUD animations off
+  bool reducedMotion = false;
+  int rampageV = 1;  // 0 = saved before the kaiju rampage meter: turn it on once  // Vault: menu/HUD animations off
 };
 struct TutorialState { int step = 0; bool done = false; int rainbows = 0, buildings = 0; std::vector<std::pair<std::string, int>> pending; };  // rainbows: civilians turned into rainbows during the tutorial
 struct SaveData {

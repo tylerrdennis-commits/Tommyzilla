@@ -5,7 +5,7 @@
 #include "game.h"
 namespace tz {
 bool Enemies::policeOn() const { return !G->adventure && (G->save.settings.police || forced); }
-void Enemies::addHeat(float h) { if (!policeOn() || h <= 0) return; heat = std::min(5.99f, heat + h); calmT = 0; }
+void Enemies::addHeat(float h) { if ((!policeOn() && !(G->adventure && level)) || h <= 0) return; heat = std::min(5.99f, heat + h); calmT = 0; }
 void Enemies::reset() { chase = PoliceChase(); cheese = CheeseMeter(); units.clear(); shots.clear(); heat = 0; calmT = 0; nukeActive = false; minHeat = 0; spawnT = 0; milSpawnT = 1; }
 int Enemies::count(UnitType t) const { int n = 0; for (auto& u : units) if (!u.wreck && u.type == t) n++; return n; }
 Vec3 Enemies::spawnPoint(float dist) {
@@ -38,7 +38,7 @@ void Enemies::addUnit(UnitType t) {
     case U_RIOT: u.hp = C.copHp + 1; u.reload = 1.5f + frand(); break;
     case U_FLAME: u.hp = C.soldierHp; u.reload = 1 + frand(); break;
     case U_ARMOR: u.hp = 3; u.reload = C.tankReload * 1.4f; break;  // 3 super hits (HP is not scaled by tiers / Crazy)
-    case U_MBOSS: u.hp = C.mbossHp; u.reload = 3; u.pos = spawnPoint(C.spawnDist * 0.8f); break;
+    case U_MBOSS: u.hp = u.maxHp = C.mbossHp; u.reload = 3; u.pos = spawnPoint(C.spawnDist * 0.8f); break;
     case U_CAR: u.hp = 1; break;
     case U_JEEP: u.hp = 1; break;
     case U_PHELI: u.hp = C.heliHp; u.pos.y = 30; u.ang = frand() * 6; G->toast("Police helicopter incoming!"); break;
@@ -73,15 +73,18 @@ void Enemies::wreckUnit(Unit& u) {
   addHeat(0.08f);
   G->onUnitDestroyed(u.type);
 }
-void Enemies::hitArea(float x, float z, float r, int moveIdx, bool thrown) {
+void Enemies::hitArea(float x, float z, float r, int moveIdx, bool thrown, float y) {
   const MoveDef* m = moveIdx >= 0 ? &T.moves[moveIdx] : nullptr;
-  bool canAir = thrown || (m && (m->kind != MoveKind::Melee || m->shape == MoveShape::Spin));
+  bool canAir = thrown || (m && (m->kind != MoveKind::Melee || m->shape == MoveShape::Spin || m->id == "stomp"));  // radius blasts and the stomp shockwave reach the sky
   bool heavy = m && (m->kind == MoveKind::Super || m->shape == MoveShape::Around);
   if (moveIdx >= 0 && moveIdx == T.moveIndex("stomp") && miniBoss()) cheese.onStomp();  // Titan anti-spam
   for (auto& u : units) {
     if (u.wreck || u.hitCd > 0) continue;
     float d = dist2D(u.pos.x, u.pos.z, x, z);
-    if (u.air()) { if (!canAir || d > r + (u.type == U_JET ? 12 : 8)) continue; }
+    if (u.air()) {  // sphere test: free vertical reach of 10 so a ground stomp still catches a swooping heli, anything higher needs a blast up there
+      float dy = std::max(0.f, std::fabs(u.pos.y - y) - 10.f);
+      if (!canAir || std::hypot(d, dy) > r + (u.type == U_JET ? 12 : 8)) continue;
+    }
     else if (d > r + (u.type == U_MBOSS ? 8 : u.tank() ? 3 : 2)) continue;
     if (u.armored() && !(m && m->kind == MoveKind::Super)) {  // armour: normal hits just clang
       u.hitCd = 0.12f; clangs++;
@@ -171,6 +174,10 @@ void Enemies::update(float dt, const InputState& in) {
       else if (nukeT <= 0) { nukeActive = false; G->gameOver("nuke"); }
     }
   }
+  if (military && !police) {  // adventure: the rampage level cools off when you stop smashing
+    calmT += dt;
+    if (calmT > C.heatDecayDelay) heat = std::max(minHeat, heat - C.heatDecay * dt);
+  }
   if (military) {
     milSpawnT -= dt;
     if (milSpawnT <= 0 && !G->level.bossPhase) {  // boss fight: no new reinforcements
@@ -179,7 +186,7 @@ void Enemies::update(float dt, const InputState& in) {
       struct { UnitType t; int max; } want[] = {{U_COP, level->cops}, {U_CAR, level->cars}, {U_SOLDIER, level->soldiers}, {U_JEEP, level->jeeps},
                                                 {U_AHELI, level->helis}, {U_ATANK, level->tanks}, {U_JET, level->jets},
                                                 {U_RIOT, level->riots}, {U_FLAME, level->flamers}, {U_ARMOR, std::min(2, level->armored)}};
-      const int NW = 10; float cm = tierCount(level->tier);
+      const int NW = 10; float cm = tierCount(level->tier) * (1.f + 0.15f * stars());  // each rampage level calls in 15% more of everything
       for (int k = 0; k < NW; k++) {
         auto& w = want[(spawnRot + k) % NW];
         int mx = w.max > 0 ? std::max(1, (int)std::floor(w.max * cm + 0.5f)) : 0;
@@ -247,11 +254,15 @@ void Enemies::update(float dt, const InputState& in) {
         break;
       }
       case U_MBOSS: {  // end-of-level boss: lumbers in and fires a three-shot cannon spread
+        if (u.maxHp > 1 && u.hp <= u.maxHp * 0.5f) {  // ENRAGE at half health: 70% faster fire and +25% damage
+          if (!u.enraged) { u.enraged = true; G->bigMessage("ENRAGED!", "The boss is furious - watch out!"); G->play(SND_roar, 0.9f, 0.7f); G->fx->ring(u.pos.x, u.pos.z, 26, 0.7f, hexColor(0xff3030)); }
+          if (!frozen) u.reload -= dt * 0.7f;
+        }
         cheese.update(dt, dist2D(u.pos.x, u.pos.z, K.pos.x, K.pos.z), 9);
         if (!frozen && (cheese.punishClose() || cheese.punishStomp())) {  // Titan: no camping point-blank / spamming stomp
           bool st = cheese.punishStomp(); cheese.consume();
           Vec3 push(K.pos.x - u.pos.x, 0, K.pos.z - u.pos.z); float pl = length(push); push = pl > 0.01f ? push * (1.f / pl) : Vec3(0, 0, 1);
-          K.pos += push * 14; K.damage(C.mbossShotDamage * u.dmgK * 1.5f); u.hitCd = 1.5f;
+          K.pos += push * 14; K.damage(C.mbossShotDamage * u.dmgK * 1.5f * C.bossHardness); u.hitCd = 1.5f;
           G->fx->ring(u.pos.x, u.pos.z, 22, 0.6f, hexColor(st ? 0x40e0ff : 0xff5030)); G->kaiju.cam.shake = 1; G->play(SND_quake, 0.7f);
           G->toast(st ? "The boss jumped your stomp! Mix up your moves!" : "Too close! Back up and use other moves!");
         }
@@ -265,7 +276,7 @@ void Enemies::update(float dt, const InputState& in) {
             Shot s; s.pos = u.pos + f * 9 + Vec3(0, u.boss == 2 ? 13.f : 6.5f, 0);
             Vec3 dir = normalize(Vec3(K.pos.x, 8, K.pos.z) - s.pos); float a = k * 0.14f, ca = std::cos(a), sa = std::sin(a);
             dir = Vec3(dir.x * ca + dir.z * sa, dir.y, -dir.x * sa + dir.z * ca);
-            s.vel = dir * 42; s.dmg = C.mbossShotDamage * u.dmgK; shots.push_back(s);
+            s.vel = dir * 42; s.dmg = C.mbossShotDamage * u.dmgK * C.bossHardness * (u.enraged ? 1.25f : 1.f); shots.push_back(s);
           }
           G->playAt(SND_cannon, u.pos, 1.0f, 0.7f); G->kaiju.cam.shake = std::min(1.f, G->kaiju.cam.shake + 0.2f);
         }

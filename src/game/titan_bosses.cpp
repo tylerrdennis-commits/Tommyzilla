@@ -16,7 +16,8 @@ bool Enemies::updateVariedBoss(Unit& u, float dt, float slow, bool frozen) {
   if (u.boss < 3) return false;
   Kaiju& K = G->kaiju; u.t += dt; u.reload -= dt; u.moving = true;
   Vec3 toK(K.pos.x - u.pos.x, 0, K.pos.z - u.pos.z); float d = length(toK); Vec3 f = d > 0.01f ? toK * (1.f / d) : Vec3(0, 0, 1);
-  float dmg = C.mbossShotDamage * u.dmgK;
+  if (u.maxHp > 1 && u.hp <= u.maxHp * 0.5f) { u.reload -= dt * 0.5f; u.enraged = true; }  // enrage: faster bombs
+  float dmg = C.mbossShotDamage * u.dmgK * C.bossHardness * (u.enraged ? 1.25f : 1.f);
   if (u.boss == 3) {
     u.ang += dt * 0.7f * slow;
     float dive = std::fmod(u.t, 6.f) > 4.5f ? 1.f : 0.f;

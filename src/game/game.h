@@ -178,6 +178,7 @@ struct Unit {
   bool tank() const { return type == U_PTANK || type == U_ATANK || type == U_MBOSS || type == U_ARMOR; }
   bool infantry() const { return type == U_COP || type == U_SOLDIER || type == U_RIOT || type == U_FLAME; }
   bool armored() const { return type == U_ARMOR; }
+  bool enraged = false;                  // end-of-level boss below half HP: fires faster, hits harder
   float flameT = 0, clangT = 0;          // flamethrower burst timer; armour 'clang' hint throttle
   bool police() const { return type == U_COP || type == U_CAR || type == U_PHELI || type == U_PTANK || type == U_RIOT; }
 };
@@ -205,7 +206,7 @@ struct Enemies {
   Unit* miniBoss();
   void wreckUnit(Unit& u);
   bool updateVariedBoss(Unit& u, float dt, float slow, bool frozen);  // Titan: titan_bosses.cpp
-  void hitArea(float x, float z, float r, int moveIdx, bool thrown);
+  void hitArea(float x, float z, float r, int moveIdx, bool thrown, float y = 0);  // y = blast height: air units count their height
   static bool shieldBlocks(const Unit& u, const Vec3& from, int moveIdx);   // riot shield: ranged (blaster / breath / beam) hits from the front
   static bool flameHits(const Unit& u, const Vec3& target);                 // flamethrower cone (short range)
   int blocked = 0, clangs = 0;                                               // stats for tests
@@ -462,6 +463,7 @@ struct Game {
   // centre-screen aim (Rainbow Blaster crosshair)
   static constexpr float AIM_SCREEN_Y = 0.36f;  // crosshair height as a fraction of the screen (0 = top)
   void aimRay(Vec3& o, Vec3& d) const;
+  int aimAir(Vec3& point) const;          // flying enemy near the crosshair ray (soft lock-on so a kid can shoot helicopters), or -1
   int aimTarget(Vec3& point);             // person index under the crosshair (or -1); point = where a shot would go
   void startMode(bool adv, bool crazyMode = false);
   void startLevel(int idx);
