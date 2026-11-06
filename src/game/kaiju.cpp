@@ -54,7 +54,7 @@ void Kaiju::damage(float n) {
     n *= lerpf(E.babyDamageTaken, 1.f, G->growthFrac());     // hatchlings take less damage while they grow
     if (G->lookOf(def().id).has("tough")) n *= 0.8f;          // Tough Scales passive
   }
-  if (hurtT <= 0) hitSeq++;  // model: one hit-react per burst of damage
+  if (hurtT <= 0) { hitSeq++; hitReactT = 0.4f; }  // model: one short hit-react per burst of damage
   hp = std::max(0.f, hp - n); hurtT = 0.3f;
   G->onKaijuHit();
   if (frand() < 0.1f) G->play(SND_hurt, 0.6f);
@@ -225,7 +225,7 @@ void Kaiju::grabOrThrow() {
 void Kaiju::update(float dt, const InputState& in) {
   if (cooldowns.size() != T.moves.size()) cooldowns.assign(T.moves.size(), 0.f);
   for (auto& c : cooldowns) c = std::max(0.f, c - dt);
-  hurtT = std::max(0.f, hurtT - dt);
+  hurtT = std::max(0.f, hurtT - dt); hitReactT = std::max(0.f, hitReactT - dt);
   bool calm = G->enemies.stars() == 0 && G->enemies.units.empty();
   if (G->boss.active && G->boss.staged && G->boss.stage >= 2 && !G->boss.dead) calm = false;  // no free regen in the real BULK fight
   if (calm) hp = std::min(maxHp(), hp + C.kaijuRegen * dt);  // natural regen only refills missing HP (never converts to XP)
