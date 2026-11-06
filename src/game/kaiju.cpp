@@ -226,7 +226,7 @@ void Kaiju::update(float dt, const InputState& in) {
   hurtT = std::max(0.f, hurtT - dt);
   bool calm = G->enemies.stars() == 0 && G->enemies.units.empty();
   if (G->boss.active && G->boss.staged && G->boss.stage >= 2 && !G->boss.dead) calm = false;  // no free regen in the real BULK fight
-  if (calm) hp = std::min(maxHp(), hp + C.kaijuRegen * dt);  // natural regen only refills missing HP (never converts to XP)
+  if (calm || G->save.settings.kidMode) hp = std::min(maxHp(), hp + C.kaijuRegen * (calm ? 1.f : 0.35f) * dt);  // natural regen only refills missing HP (never converts to XP)
   if (G->hasLook(def().id) && G->lookOf(def().id).has("regen")) hp = std::min(maxHp(), hp + 1.5f * dt);  // Healing Hugs passive
   popT = std::max(0.f, popT - dt);
   Profile& P = G->P(); const Settings& S = G->save.settings;

@@ -378,8 +378,9 @@ struct Game {
   bool splitScreen() const;  // 2P split screen: Players = 2, P2 joined, in play (left = P1, right = P2)
   Camera coopHeldCam;        // P2's own camera while coopFocusBegin has P2 swapped into Game::kaiju
   bool coopFocusBegin(const Vec3& from); void coopFocusEnd(bool swapped);  // Wren: temporarily make the nearest player Game::kaiju (enemy / boss targeting)
-  float enemyDamageMult() const { return adventure ? C.adventureEnemyDamage * (crazy ? C.crazyEnemyDamage : 1.f) * diff().enemyDamage : diff().enemyDamage; }  // kid-friendly campaign; Crazy = 2x that
-  float superCostMult() const { return crazy ? C.crazySuperCost : 1.f; }  // Crazy: multiplies the super EAT COST
+  float kidDamageMult() const { return save.settings.kidMode ? 0.4f : 1.f; }  // Kid Mode: enemies hit 60% softer
+  float enemyDamageMult() const { return kidDamageMult() * (adventure ? C.adventureEnemyDamage * (crazy ? C.crazyEnemyDamage : 1.f) * diff().enemyDamage : diff().enemyDamage); }  // kid-friendly campaign; Crazy = 2x that
+  float superCostMult() const { return (crazy ? C.crazySuperCost : 1.f) * (save.settings.kidMode ? 0.5f : 1.f); }  // Crazy: multiplies the super EAT COST
   // boss
   void startBoss(const LevelDef& L);
   void updateBoss(float dt); void updateBossFocused(float dt);
@@ -401,6 +402,7 @@ struct Game {
   void updateIntro(float dt, const InputState& in);
   void finishIntro();
   void drawIntro(RenderList& rl);
+  static void simplifyInput(InputState& in);  // Simple Controls: drop the advanced buttons
   void frame(float dt, const InputState& in);   // update + menus
   // p2view (optional): when splitScreen(), the right half's 3D view is written there and rl becomes the left half
   // (plus all 2D: both HUDs and fullscreen menus). Returns true when it split; 1P always renders fullscreen into rl.

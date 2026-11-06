@@ -52,6 +52,7 @@ struct Settings {
   bool police = false, policeAsked = false, muted = false, invertY = false;
   float volume = 0.8f, mouseSens = 1.0f;
   int difficulty = 0, players = 1;  // Titan: Easy/Hard/Insane, 1-2 players
+  bool kidMode = false, simpleControls = false;  // Tommy: gentler fights / fewer buttons
   bool reducedMotion = false;  // Vault: menu/HUD animations off
 };
 struct TutorialState { int step = 0; bool done = false; int rainbows = 0, buildings = 0; std::vector<std::pair<std::string, int>> pending; };  // rainbows: civilians turned into rainbows during the tutorial

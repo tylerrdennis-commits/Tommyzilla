@@ -409,6 +409,10 @@ void Game::openOptions() {
     mm.items.push_back(ms);
     MenuItem inv; inv.label = "Invert look Y"; inv.right = s.invertY ? "ON" : "OFF"; inv.act = [this]() { save.settings.invertY = !save.settings.invertY; persist(); };
     mm.items.push_back(inv);
+    { MenuItem kd; kd.label = "Kid mode"; kd.right = s.kidMode ? "ON" : "OFF"; kd.desc = "Enemies hit much softer, health comes back faster and super attacks cost half as many eaten people.";
+      kd.act = [this]() { save.settings.kidMode = !save.settings.kidMode; persist(); }; mm.items.push_back(kd);
+      MenuItem sc; sc.label = "Simple controls"; sc.right = s.simpleControls ? "ON" : "OFF"; sc.desc = "Only the main buttons: move, smash, stomp, grab / eat, one special and run. Turns off the rest.";
+      sc.act = [this]() { save.settings.simpleControls = !save.settings.simpleControls; persist(); }; mm.items.push_back(sc); }
     { MenuItem rmI; rmI.label = "Reduced motion"; rmI.right = s.reducedMotion ? "ON" : "OFF"; rmI.desc = "Turns off menu slide and button pop animations.";
       rmI.act = [this]() { save.settings.reducedMotion = !save.settings.reducedMotion; persist(); }; mm.items.push_back(rmI); }
     MenuItem ct; ct.label = "Controls"; ct.desc = "Controller and keyboard / mouse layout"; ct.act = [this]() { openControls(); }; mm.items.push_back(ct);

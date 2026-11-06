@@ -758,8 +758,16 @@ int Game::aimTarget(Vec3& point) {
 }
 
 // ---------------------------------------------------------------- frame
-void Game::frame(float dt, const InputState& in) {
+void Game::simplifyInput(InputState& in) {
+  // Simple Controls keeps: move, look, smash (claw), stomp, grab/eat, special 1, run, pause, menus.
+  // It drops: tail, LB-alt moves, special 2, quick-cycle, pay-nuke, so a kid cannot hit them by accident.
+  static const Action off[] = { A_TAIL, A_ALT, A_ALT1, A_ALT2, A_ALT3, A_SLOT2, A_CYCLE1, A_CYCLE2, A_PAY };
+  for (Action a : off) { in.held[a] = false; in.pressed[a] = false; }
+}
+void Game::frame(float dt, const InputState& rawIn) {
   G = this;
+  InputState in = rawIn;
+  if (save.settings.simpleControls) simplifyInput(in);
   sounds.clear();
   usingPad = in.usingPad; mouseCaptured = in.mouseCaptured;
   fpsAcc += dt; fpsFrames++; if (fpsAcc > 0.5f) { fps = fpsFrames / fpsAcc; fpsAcc = 0; fpsFrames = 0; }

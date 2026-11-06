@@ -70,7 +70,7 @@ Json SaveData::toJson() const {
   j.set("sandbox", sandbox.toJson()); j.set("adventure", adventure.toJson()); j.set("crazy", crazy.toJson());
   Json s = Json::makeObj();
   s.set("difficulty", Json::makeNum(settings.difficulty)); s.set("players", Json::makeNum(settings.players)); s.set("police", Json::makeBool(settings.police)); s.set("policeAsked", Json::makeBool(settings.policeAsked)); s.set("muted", Json::makeBool(settings.muted));
-  s.set("invertY", Json::makeBool(settings.invertY)); s.set("volume", Json::makeNum(settings.volume)); s.set("mouseSens", Json::makeNum(settings.mouseSens)); s.set("reducedMotion", Json::makeBool(settings.reducedMotion));
+  s.set("invertY", Json::makeBool(settings.invertY)); s.set("volume", Json::makeNum(settings.volume)); s.set("mouseSens", Json::makeNum(settings.mouseSens)); s.set("reducedMotion", Json::makeBool(settings.reducedMotion)); s.set("kidMode", Json::makeBool(settings.kidMode)); s.set("simpleControls", Json::makeBool(settings.simpleControls));
   j.set("settings", s);
   Json t = Json::makeObj(); t.set("step", Json::makeNum(tutorial.step)); t.set("done", Json::makeBool(tutorial.done)); t.set("rainbows", Json::makeNum(tutorial.rainbows)); t.set("buildings", Json::makeNum(tutorial.buildings)); j.set("tutorial", t);
   Json m = Json::makeArr(); for (auto& id : monsters) m.arr.push_back(Json::makeStr(id)); j.set("monsters", m);
@@ -87,7 +87,7 @@ bool SaveData::fromJson(const Json& j) {
   sandbox.fromJson(j["sandbox"]); adventure.fromJson(j["adventure"]); crazy.fromJson(j["crazy"]);
   const Json& s = j["settings"];
   settings.difficulty = std::max(0, std::min(2, (int)s["difficulty"].numOr(0))); settings.players = std::max(1, std::min(2, (int)s["players"].numOr(1))); settings.police = s["police"].boolOr(false); settings.policeAsked = s["policeAsked"].boolOr(false); settings.muted = s["muted"].boolOr(false);
-  settings.invertY = s["invertY"].boolOr(false); settings.volume = (float)s["volume"].numOr(0.8); settings.mouseSens = (float)s["mouseSens"].numOr(1.0); settings.reducedMotion = s["reducedMotion"].boolOr(false);
+  settings.invertY = s["invertY"].boolOr(false); settings.volume = (float)s["volume"].numOr(0.8); settings.mouseSens = (float)s["mouseSens"].numOr(1.0); settings.reducedMotion = s["reducedMotion"].boolOr(false); settings.kidMode = s["kidMode"].boolOr(false); settings.simpleControls = s["simpleControls"].boolOr(false);
   tutorial.step = (int)j["tutorial"]["step"].numOr(0); tutorial.done = j["tutorial"]["done"].boolOr(false); tutorial.rainbows = (int)j["tutorial"]["rainbows"].numOr(0); tutorial.buildings = (int)j["tutorial"]["buildings"].numOr(0);
   created = j["created"].boolOr(true);  // older saves never had a creation spin: they count as created
   zooCompleted = j["zooCompleted"].boolOr(false); spinSlot = j["spinSlot"].boolOr(false);

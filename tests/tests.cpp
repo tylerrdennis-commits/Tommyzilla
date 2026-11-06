@@ -2314,13 +2314,29 @@ static void testVersionNotes() {
   CHECK(prog::bossAfter("mech", "mech") != "mech" && prog::bossAfter("crab", "mech") == "crab");
   CHECK(T.levels[10].miniBoss == "supertank" && T.levels[11].miniBoss == "mech");
 }
+static void testKidMode() {
+  auto g = sandboxGame();
+  float base = g->enemyDamageMult(); int cost0 = g->superEatCost(T.moves[T.moveIndex("breath")], 1.f);
+  g->save.settings.kidMode = true;
+  CHECK(std::fabs(g->enemyDamageMult() - base * 0.4f) < 1e-4f);
+  CHECK(g->superCostMult() <= 0.5f + 1e-4f);
+  for (auto& m : T.moves) if (m.kind == MoveKind::Super && m.id != "glove") { CHECK(g->superEatCost(m, 1.f) >= 1); }
+  (void)cost0;
+  // settings round trip
+  g->save.settings.simpleControls = true; Json jj = g->save.toJson(); SaveData s2; CHECK(s2.fromJson(jj)); CHECK(s2.settings.kidMode && s2.settings.simpleControls);
+  // simple controls drop the advanced buttons but keep the main ones
+  InputState in; for (int a = 0; a < A_COUNT; a++) { in.held[a] = true; in.pressed[a] = true; }
+  Game::simplifyInput(in);
+  CHECK(!in.pressed[A_TAIL] && !in.pressed[A_ALT] && !in.pressed[A_ALT1] && !in.pressed[A_SLOT2] && !in.pressed[A_CYCLE1] && !in.pressed[A_PAY]);
+  CHECK(in.pressed[A_CLAW] && in.pressed[A_STOMP] && in.pressed[A_SLOT1] && in.pressed[A_EAT] && in.pressed[A_GRAB] && in.pressed[A_SPRINT] && in.pressed[A_PAUSE] && in.pressed[A_CONFIRM]);
+}
 int main() {
   loadData();
   if (const char* only = std::getenv("TZ_ONLY")) {  // quick subset runs while developing: TZ_ONLY=bulk|arc|zoo|ending|...
     std::string o = only;
     if (o == "eggs") testEggTables(); if (o == "spin") testSpinner(); if (o == "growth") testGrowthAndXp(); if (o == "finish") testFinishRender();
     if (o == "ladder") testEnemyLadder(); if (o == "deevo") testDeevo(); if (o == "zoo") testZooAndKey(); if (o == "eat1") testOneButtonEat(); if (o == "siren") testSirenStops(); if (o == "split") testSplitScreen(); if (o == "cam") { testAdventureCamera(); testZooCageBlocks(); } if (o == "arc") testGauntletArc(); if (o == "oldtown") testOldTownQuest(); if (o == "zoogate") testZooGateQuest();
-    if (o == "bulk") testBulkStages(); if (o == "ending") testCreditsAndEnding(); if (o == "wren") testWrenWiring(); if (o == "adventure") testAdventure(); if (o == "police") testSandboxPoliceToggle(); if (o == "controls") testControlsMapping(); if (o == "store") testStoreGrid(); if (o == "ground") testGroundTextures(); if (o == "shader") testShaderKeywords(); if (o == "notes") testVersionNotes();
+    if (o == "bulk") testBulkStages(); if (o == "ending") testCreditsAndEnding(); if (o == "wren") testWrenWiring(); if (o == "adventure") testAdventure(); if (o == "police") testSandboxPoliceToggle(); if (o == "controls") testControlsMapping(); if (o == "store") testStoreGrid(); if (o == "ground") testGroundTextures(); if (o == "shader") testShaderKeywords(); if (o == "notes") testVersionNotes(); if (o == "kid") testKidMode();
     std::printf("\n%d passed, %d failed\n", gPass, gFail); return gFail ? 1 : 0;
   }
   testData(); testKaijuGen(); testRexPlay(); testUnlocks(); testEconomy(); testPolice(); testTitan(); testTitanGame(); testCampaign(); testSave(); testSynthAndMeshes();
@@ -2329,7 +2345,7 @@ int main() {
   testSkillSlots(); testSaveSlots(); testAdventureChoice(); testCrazy(); testPoliceAudioAndMovement(); testIntro();
   testEatFuel(); testRoster(); testLevel5Chests(); testProceduralCity(); testHiddenStones(); testChampionPick(); testDifficultyCurve();
   testModelHooks(); testSandboxPoliceToggle(); testControlsMapping(); testStoreGrid(); testGroundTextures(); testShaderKeywords();
-  testEggTables(); testSpinner(); testGrowthAndXp(); testFinishRender(); testEnemyLadder(); testDeevo(); testZooAndKey(); testOneButtonEat(); testAdventureCamera(); testZooCageBlocks(); testSirenStops(); testSplitScreen(); testGauntletArc(); testOldTownQuest(); testZooGateQuest(); testBulkStages(); testCreditsAndEnding(); testWrenWiring(); testVersionNotes();
+  testEggTables(); testSpinner(); testGrowthAndXp(); testFinishRender(); testEnemyLadder(); testDeevo(); testZooAndKey(); testOneButtonEat(); testAdventureCamera(); testZooCageBlocks(); testSirenStops(); testSplitScreen(); testGauntletArc(); testOldTownQuest(); testZooGateQuest(); testBulkStages(); testCreditsAndEnding(); testWrenWiring(); testVersionNotes(); testKidMode();
   std::printf("\n%d passed, %d failed\n", gPass, gFail);
   return gFail ? 1 : 0;
 }
