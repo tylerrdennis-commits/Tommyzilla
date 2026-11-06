@@ -223,7 +223,7 @@ struct Bolt { int move; Vec3 pos, vel; float t, life; };               // Rainbo
 struct EatTween { Vec3 from; float t; int look; };                      // a gulped civilian flying up to the mouth
 struct Camera { float yaw = 0, pitch = 0.32f, dist = 34, idle = 99, shake = 0; Vec3 pos, target; };
 struct Kaiju {
-  int monster = 0; Vec3 pos; float facing = PI, twist = 0, lift = 0, hp = 100, hurtT = 0;
+  int monster = 0; Vec3 pos; float facing = PI, twist = 0, lift = 0, hp = 100, hurtT = 0, hitReactT = 0;  // hitReactT: how long the one-shot flinch clip may play after a burst of damage
   Attack at; std::vector<float> cooldowns; bool charging = false; float charge = 0; int chargeSlot = -1; Action chargeBtn = A_SLOT1;
   int held = -1; float walkPhase = 0, speedNow = 0; bool sprinting = false, animRun = false; bool inWater = false; Camera cam;
   int player = 0;  // 0 = P1, 1 = P2 (travels with the object through the co-op swaps; keys its model animator)

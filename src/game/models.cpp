@@ -66,7 +66,8 @@ bool Game::kaijuModel(RenderList& rl, float time) {
     bool roar = m->shape == MoveShape::Roar || m->shape == MoveShape::Nova;
     bool stomp = m->id == "stomp" || m->shape == MoveShape::Quake || m->shape == MoveShape::Meteor;
     r.clip = roar ? MC_CHEER : stomp ? MC_JUMP : MC_ATTACK; r.loop = false; r.trigger = k.attackSeq; r.fit = std::max(0.25f, k.at.dur);
-  } else if (k.hurtT > 0) { r.clip = MC_HIT; r.loop = false; r.trigger = k.hitSeq; }
+  } else if (k.hitReactT > 0) {  // only the first moments of a burst: under constant fire the one-shot flinch would hold its last frame and freeze the limbs while running
+    r.clip = MC_HIT; r.loop = false; r.trigger = k.hitSeq; }
   else if (k.speedNow > 1.5f) {
     // Foot planting: play the gait at the rate that matches the ground speed. Measured from the clips' foot motion, the
     // CharacterArmature Walk / Run cover about 1.10 / 3.18 model heights per second at 1x (a model's height comes from the

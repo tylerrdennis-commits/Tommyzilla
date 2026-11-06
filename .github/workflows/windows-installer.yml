@@ -86,6 +86,10 @@ jobs:
           }
           Write-Host "Installer OK: $((Get-ChildItem verify -Recurse -File).Count) files"
 
+      - name: Plain zip of the game folder (for hands-free installs)
+        shell: pwsh
+        run: Compress-Archive -Path .\dist\* -DestinationPath Tommyzilla-files.zip -CompressionLevel Optimal
+
       - uses: actions/upload-artifact@v4
         with:
           name: Tommyzilla-Update
@@ -97,7 +101,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete installer-latest --yes --cleanup-tag 2>$null
-          gh release create installer-latest Tommyzilla-Update.exe --prerelease `
+          gh release create installer-latest Tommyzilla-Update.exe Tommyzilla-files.zip --prerelease `
             --title "Tommyzilla installer (latest build)" `
             --target "$env:GITHUB_SHA" `
             --notes "Self-extracting installer built from branch ${{ github.ref_name }} (commit ${{ github.sha }}). Double-click it; it installs into %LOCALAPPDATA%\Tommyzilla and leaves your saves alone. Windows may show a SmartScreen warning because the file is not code-signed: choose More info, then Run anyway."

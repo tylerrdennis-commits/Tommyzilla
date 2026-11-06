@@ -461,13 +461,36 @@ static void testLimbsNotTPose(ModelLibrary& lib) {
   g->menus.clear();
 }
 
+static void testRunKeepsAnimating(ModelLibrary& lib) {
+  SECTION("running under constant fire keeps the gait (the flinch clip must not freeze the limbs)");
+  for (const char* id : {"tommyzilla", "mossback", "gloopzilla", "titanrex", "magmayeti"}) {
+    int mi = T.monsterIndex(id); if (mi < 0) continue;
+    auto g = std::make_unique<Game>(); GameModels gm(lib);
+    g->init(nullptr); g->save.tutorial.done = true; g->startMode(false); g->models = &gm; g->selectMonster(mi);
+    InputState none; for (int i = 0; i < 20; i++) g->frame(1.f / 60, none);
+    for (int i = 0; i < 6 && !g->menus.empty(); i++) { InputState c; c.pressed[A_CONFIRM] = true; g->frame(1.f / 60, c); }
+    g->kaiju.cam.yaw = PI; g->kaiju.facing = 0;
+    const int asset = g->modelAsset(g->kaiju.def().id);
+    InputState run; run.moveY = 1; run.held[A_SPRINT] = true;
+    int hitFrames = 0, gaitFrames = 0;
+    for (int i = 0; i < 60 * 6; i++) {  // 6 s: a helicopter's damage-per-second lands every single frame
+      g->kaiju.hp = g->kaiju.maxHp(); g->kaiju.damage(0.05f); g->frame(1.f / 60, run);
+      if (i < 90) continue;  // after the first 1.5 s only the gait may play
+      RenderList rl; g->render(rl, 1280, 720);
+      for (const ModelReq& r : rl.models) if (r.asset == asset && r.key) { if (r.clip == MC_HIT) hitFrames++; if (r.clip == MC_RUN || r.clip == MC_WALK) gaitFrames++; }
+    }
+    std::printf("  %-12s hit-clip frames %d, gait frames %d\n", id, hitFrames, gaitFrames);
+    CHECK(hitFrames == 0 && gaitFrames > 200);
+  }
+}
+
 int main() {
   testMath(); testInlineGltf(); testTextureDecode(); testFallbackAndManifest(); testGroundTextureFiles();
   ModelLibrary lib; std::string err;
   bool ok = lib.loadManifestFile(kRoot + "data/models.json", kRoot, err);
   if (!ok) std::printf("manifest error: %s\n", err.c_str());
   CHECK(ok);
-  testManifestModels(lib); testSkinning(lib); testLooks(lib); testOptionalFbxCharacter(); testScene(lib); testGameModels(lib); testLimbsNotTPose(lib);
+  testManifestModels(lib); testSkinning(lib); testLooks(lib); testOptionalFbxCharacter(); testScene(lib); testGameModels(lib); testLimbsNotTPose(lib); testRunKeepsAnimating(lib);
   std::printf("\n[library log]\n"); for (auto& l : lib.log()) std::printf("  %s\n", l.c_str());
   std::printf("\n%d passed, %d failed\n", gPass, gFail);
   return gFail ? 1 : 0;
