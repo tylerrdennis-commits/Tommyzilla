@@ -1,0 +1,103 @@
+# Builds Tommyzilla for Windows on a GitHub server and wraps it in a self-extracting installer.
+#
+# Run it from the Actions tab ("Run workflow") on any branch, or it runs on every push to a claude/** branch.
+# The result is a download on the Releases page ("Tommyzilla installer (latest build)") and an artifact on the run.
+# Double-click Tommyzilla-Update.exe: it unpacks the game into %LOCALAPPDATA%\Tommyzilla (C:\Users\<you>\AppData\Local\Tommyzilla).
+# Save games live in %APPDATA%\Tommyzilla (a different folder), so installing never touches them.
+name: Windows installer
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['claude/**']
+
+permissions:
+  contents: write   # lets the run publish the installer to the Releases page
+
+jobs:
+  tests:
+    name: Tests (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run the test suites
+        run: |
+          cmake -S . -B build-tests -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-tests -j"$(nproc)"
+          ctest --test-dir build-tests --output-on-failure
+
+  windows:
+    name: Build Windows installer
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up MinGW-w64 (the same compiler family as build_mingw.sh)
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: false
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+
+      - name: Build Tommyzilla.exe
+        shell: msys2 {0}
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j"$(nproc)"
+
+      - name: Stage the game folder (exe + data + the models the game uses)
+        shell: msys2 {0}
+        run: |
+          mkdir -p dist
+          cp build/Tommyzilla.exe dist/
+          cp -r data dist/data
+          ROOT="$(cygpath -m "$PWD")"
+          cmake -DSRC_DIR="$ROOT" -DDEST="$ROOT/dist" -P tools/copy_models.cmake
+          ls -la dist | head -20
+
+      - name: Make the self-extracting installer
+        shell: pwsh
+        run: |
+          $sz = Join-Path $env:ProgramFiles '7-Zip'
+          & "$sz\7z.exe" a -t7z -mx=7 installer.7z .\dist\* | Select-Object -Last 4
+          $cfg = @'
+          ;!@Install@!UTF-8!
+          Title="Tommyzilla City Smash update"
+          BeginPrompt="Install the Tommyzilla update into %LOCALAPPDATA%\\Tommyzilla?\n\nYour saved games are not touched."
+          InstallPath="%LOCALAPPDATA%\\Tommyzilla"
+          GUIMode="1"
+          FinishMessage="Done! Start Tommyzilla.exe from the Tommyzilla folder in AppData\\Local."
+          ;!@InstallEnd@!
+          '@
+          [IO.File]::WriteAllText("$PWD\sfx-config.txt", $cfg, (New-Object Text.UTF8Encoding $false))
+          cmd /c copy /b "$sz\7z.sfx" + sfx-config.txt + installer.7z Tommyzilla-Update.exe
+          Get-Item Tommyzilla-Update.exe | Format-List Name, Length
+
+      - name: Check the installer unpacks and contains the game
+        shell: pwsh
+        run: |
+          $sz = Join-Path $env:ProgramFiles '7-Zip'
+          & "$sz\7z.exe" x -y -o"$PWD\verify" Tommyzilla-Update.exe | Select-Object -Last 3
+          foreach ($p in 'verify\Tommyzilla.exe', 'verify\data\monsters.json', 'verify\assets') {
+            if (-not (Test-Path $p)) { throw "missing from installer: $p" }
+          }
+          Write-Host "Installer OK: $((Get-ChildItem verify -Recurse -File).Count) files"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Tommyzilla-Update
+          path: Tommyzilla-Update.exe
+
+      - name: Publish to the Releases page
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete installer-latest --yes --cleanup-tag 2>$null
+          gh release create installer-latest Tommyzilla-Update.exe --prerelease `
+            --title "Tommyzilla installer (latest build)" `
+            --target "$env:GITHUB_SHA" `
+            --notes "Self-extracting installer built from branch ${{ github.ref_name }} (commit ${{ github.sha }}). Double-click it; it installs into %LOCALAPPDATA%\Tommyzilla and leaves your saves alone. Windows may show a SmartScreen warning because the file is not code-signed: choose More info, then Run anyway."
