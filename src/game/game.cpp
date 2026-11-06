@@ -748,6 +748,7 @@ void Game::aimRay(Vec3& o, Vec3& d) const {
 }
 int Game::aimAir(Vec3& point) const {
   Vec3 o, d; aimRay(o, d); int best = -1; float bestScore = 1e9f;
+  if (d.y < -0.05f) return -1;  // only lock on when the crosshair is raised toward the sky: a shot at the ground (eggs, buildings, people) stays on the ground
   for (int i = 0; i < (int)enemies.units.size(); i++) {
     const Unit& u = enemies.units[i];
     if (u.wreck || !u.air()) continue;

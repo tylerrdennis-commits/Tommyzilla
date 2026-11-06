@@ -4,7 +4,7 @@
   {
    "id": "common",
    "name": "Common",
-   "rate": 50,
+   "rate": 36,
    "color": "c8ccd8",
    "size": 1.0,
    "hp": 1.0,
@@ -16,7 +16,7 @@
   {
    "id": "uncommon",
    "name": "Uncommon",
-   "rate": 27,
+   "rate": 26,
    "color": "4cd964",
    "size": 1.05,
    "hp": 1.1,
@@ -28,7 +28,7 @@
   {
    "id": "rare",
    "name": "Rare",
-   "rate": 14,
+   "rate": 20,
    "color": "3a8dff",
    "size": 1.1,
    "hp": 1.2,
@@ -40,7 +40,7 @@
   {
    "id": "epic",
    "name": "Epic",
-   "rate": 6.5,
+   "rate": 13,
    "color": "b06bff",
    "size": 1.15,
    "hp": 1.3,
@@ -52,7 +52,7 @@
   {
    "id": "legendary",
    "name": "Legendary",
-   "rate": 2,
+   "rate": 4.5,
    "color": "ffb020",
    "size": 1.2,
    "hp": 1.45,
@@ -80,27 +80,59 @@
    "jellybellie",
    "puffernaut",
    "bonkbeak",
-   "pinchington"
+   "pinchington",
+   "mudstomp",
+   "sunnybird",
+   "mintslime",
+   "grumpfish"
   ],
   "uncommon": [
    "hootzooka",
    "clamshell",
    "wobblewump",
-   "fizzlefin"
+   "fizzlefin",
+   "frostyeti",
+   "lavacrab",
+   "stormpigeon",
+   "zapblob",
+   "toadstool"
   ],
   "rare": [
    "mossback",
    "noodlewyrm",
    "slinkysnoot",
-   "clanksworth"
+   "clanksworth",
+   "sandserpent",
+   "seaserpent",
+   "emberdragon",
+   "jadedragon",
+   "ironyeti",
+   "rustmech",
+   "ghostbirb",
+   "bonecrab"
   ],
   "epic": [
    "sparkleraptor",
    "thunderhorn",
-   "stompasaurus"
+   "stompasaurus",
+   "infernodemon",
+   "frostdemon",
+   "shadowdemon",
+   "golddemon",
+   "crystaldragon",
+   "nightdragon",
+   "voltfox",
+   "magmayeti",
+   "sporeking"
   ],
   "legendary": [
-   "roborumble"
+   "roborumble",
+   "titanrex",
+   "stormdragon",
+   "overmech",
+   "starserpent",
+   "phoenixbirb",
+   "leviathan"
   ],
   "ultra": [
    "tommyzilla"
@@ -716,6 +748,1094 @@
     "primary": "f5ffaf",
     "secondary": "fbffe3",
     "accent": "9affb1",
+    "eyes": "7aff6a"
+   }
+  ],
+  "mudstomp": [
+   {
+    "name": "Classic",
+    "weight": 4,
+    "primary": "7a6a3a",
+    "secondary": "b8a878",
+    "accent": "c8a050",
+    "eyes": "ffe03a"
+   },
+   {
+    "name": "Berry",
+    "weight": 2,
+    "primary": "497a3a",
+    "secondary": "87b878",
+    "accent": "50c89e",
+    "eyes": "ff4fd8"
+   },
+   {
+    "name": "Ocean",
+    "weight": 2,
+    "primary": "7a3a53",
+    "secondary": "b87891",
+    "accent": "5078c8",
+    "eyes": "3ad7ff"
+   },
+   {
+    "name": "Candy",
+    "weight": 1,
+    "primary": "7598a5",
+    "secondary": "a7c1ca",
+    "accent": "a8c850",
+    "eyes": "7aff6a"
+   }
+  ],
+  "sunnybird": [
+   {
+    "name": "Classic",
+    "weight": 4,
+    "primary": "ffd23a",
+    "secondary": "fff0b0",
+    "accent": "ff8a3a",
+    "eyes": "ffe03a"
+   },
+   {
+    "name": "Berry",
+    "weight": 2,
+    "primary": "63ff3a",
+    "secondary": "bdffb0",
+    "accent": "3aff86",
+    "eyes": "ff4fd8"
+   },
+   {
+    "name": "Ocean",
+    "weight": 2,
+    "primary": "ff3a83",
+    "secondary": "ffb0ca",
+    "accent": "3aafff",
+    "eyes": "3ad7ff"
+   },
+   {
+    "name": "Candy",
+    "weight": 1,
+    "primary": "93dfff",
+    "secondary": "d8f2ff",
+    "accent": "feff3a",
+    "eyes": "7aff6a"
+   }
+  ],
+  "mintslime": [
+   {
+    "name": "Classic",
+    "weight": 4,
+    "primary": "6bffb0",
+    "secondary": "d8fff0",
+    "accent": "3ad7ff",
+    "eyes": "ffe03a"
+   },
+   {
+    "name": "Berry",
+    "weight": 2,
+    "primary": "6bb7ff",
+    "secondary": "d8e6ff",
+    "accent": "ff3adb",
+    "eyes": "ff4fd8"
+   },
+   {
+    "name": "Ocean",
+    "weight": 2,
+    "primary": "cfff6b",
+    "secondary": "ecffd8",
+    "accent": "ff623a",
+    "eyes": "3ad7ff"
+   },
+   {
+    "name": "Candy",
+    "weight": 1,
+    "primary": "feaeff",
+    "secondary": "ffecfc",
+    "accent": "3a61ff",
+    "eyes": "7aff6a"
+   }
+  ],
+  "grumpfish": [
+   {
+    "name": "Classic",
+    "weight": 4,
+    "primary": "8aa0b0",
+    "secondary": "c8d4dc",
+    "accent": "e0e8f0",
+    "eyes": "ffe03a"
+   },
+   {
+    "name": "Berry",
+    "weight": 2,
+    "primary": "9b8ab0",
+    "secondary": "d0c8dc",
+    "accent": "f0e0e8",
+    "eyes": "ff4fd8"
+   },
+   {
+    "name": "Ocean",
+    "weight": 2,
+    "primary": "8ab095",
+    "secondary": "c8dccd",
+    "accent": "f0e8e0",
+    "eyes": "3ad7ff"
+   },
+   {
+    "name": "Candy",
+    "weight": 1,
+    "primary": "eed1d3",
+    "secondary": "f2e7e8",
+    "accent": "e2e0f0",
+    "eyes": "7aff6a"
+   }
+  ],
+  "frostyeti": [
+   {
+    "name": "Classic",
+    "weight": 4,
+    "primary": "e8f4ff",
+    "secondary": "ffffff",
+    "accent": "7ad8ff",
+    "eyes": "ffe03a"
+   },
+   {
+    "name": "Berry",
+    "weight": 2,
+    "primary": "f3e8ff",
+    "secondary": "ffffff",
+    "accent": "ff7adb",
+    "eyes": "ff4fd8"
+   },
+   {
+    "name": "Ocean",
+    "weight": 2,
+    "primary": "e8fff0",
+    "secondary": "ffffff",
+    "accent": "ffa17a",
+    "eyes": "3ad7ff"
+   },
+   {
+    "name": "Candy",
+    "weight": 1,
+    "primary": "fff2f2",
+    "secondary": "ffffff",
+    "accent": "7a88ff",
+    "eyes": "7aff6a"
+   }
+  ],
+  "lavacrab": [
+   {
+    "name": "Classic",
+    "weight": 4,
+    "primary": "d04a1a",
+    "secondary": "f08a50",
+    "accent": "ffb020",
+    "eyes": "ffe03a"
+   },
+   {
+    "name": "Berry",
+    "weight": 2,
+    "primary": "9cd01a",
+    "secondary": "b3f050",
+    "accent": "20ffac",
+    "eyes": "ff4fd8"
+   },
+   {
+    "name": "Ocean",
+    "weight": 2,
+    "primary": "d01ab9",
+    "secondary": "f050cc",
+    "accent": "206fff",
+    "eyes": "3ad7ff"
+   },
+   {
+    "name": "Candy",
+    "weight": 1,
+    "primary": "84ffe4",
+    "secondary": "aafff5",
+    "accent": "c8ff20",
+    "eyes": "7aff6a"
+   }
+  ],
+  "stormpigeon": [
+   {
+    "name": "Classic",
+    "weight": 4,
+    "primary": "3a5a9a",
+    "secondary": "a8c0e8",
+    "accent": "ffe03a",
+    "eyes": "ffe03a"
+   },
+   {
+    "name": "Berry",
+    "weight": 2,
+    "primary": "7c3a9a",
+    "secondary": "d1a8e8",
+    "accent": "3affdc",
+    "eyes": "ff4fd8"
+   },
+   {
+    "name": "Ocean",
+    "weight": 2,
+    "primary": "3a9a6d",
+    "secondary": "a8e8c7",
+    "accent": "3a59ff",
+    "eyes": "3ad7ff"
+   },
+   {
+    "name": "Candy",
+    "weight": 1,
+    "primary": "d09689",
+    "secondary": "ffe1dc",
+    "accent": "a8ff3a",
+    "eyes": "7aff6a"
+   }
+  ],
+  "zapblob": [
+   {
+    "name": "Classic",
+    "weight": 4,
+    "primary": "ffe03a",
+    "secondary": "fff4a0",
+    "accent": "3ad7ff",
+    "eyes": "ffe03a"
+   },
+   {
+    "name": "Berry",
+    "weight": 2,
+    "primary": "55ff3a",
+    "secondary": "a9ffa0",
+    "accent": "ff3adb",
+    "eyes": "ff4fd8"
+   },
+   {
+    "name": "Ocean",
+    "weight": 2,
+    "primary": "ff3a75",
+    "secondary": "ffa0b8",
+    "accent": "ff623a",
+    "eyes": "3ad7ff"
+   },
+   {
+    "name": "Candy",
+    "weight": 1,
+    "primary": "93d8ff",
+    "secondary": "d0ecff",
+    "accent": "3a61ff",
+    "eyes": "7aff6a"
+   }
+  ],
+  "toadstool": [
+   {
+    "name": "Classic",
+    "weight": 4,
+    "primary": "d04a4a",
+    "secondary": "f8e0d0",
+    "accent": "ffffff",
+    "eyes": "ffe03a"
+   },
+   {
+    "name": "Berry",
+    "weight": 2,
+    "primary": "cdd04a",
+    "secondary": "e7f8d0",
+    "accent": "ffffff",
+    "eyes": "ff4fd8"
+   },
+   {
+    "name": "Ocean",
+    "weight": 2,
+    "primary": "bd4ad0",
+    "secondary": "f8d0ee",
+    "accent": "ffffff",
+    "eyes": "3ad7ff"
+   },
+   {
+    "name": "Candy",
+    "weight": 1,
+    "primary": "a5ffd4",
+    "secondary": "eafffd",
+    "accent": "ffffff",
+    "eyes": "7aff6a"
+   }
+  ],
+  "sandserpent": [
+   {
+    "name": "Classic",
+    "weight": 4,
+    "primary": "e0c070",
+    "secondary": "f8e8b8",
+    "accent": "b0602a",
+    "eyes": "ffe03a"
+   },
+   {
+    "name": "Berry",
+    "weight": 2,
+    "primary": "8ee070",
+    "secondary": "c7f8b8",
+    "accent": "2ab05d",
+    "eyes": "ff4fd8"
+   },
+   {
+    "name": "Ocean",
+    "weight": 2,
+    "primary": "e070a0",
+    "secondary": "f8b8d1",
+    "accent": "2a7ab0",
+    "eyes": "3ad7ff"
+   },
+   {
+    "name": "Candy",
+    "weight": 1,
+    "primary": "b9efff",
+    "secondary": "def6ff",
+    "accent": "b0b02a",
+    "eyes": "7aff6a"
+   }
+  ],
+  "seaserpent": [
+   {
+    "name": "Classic",
+    "weight": 4,
+    "primary": "2a9ad0",
+    "secondary": "b8f0ff",
+    "accent": "9affea",
+    "eyes": "ffe03a"
+   },
+   {
+    "name": "Berry",
+    "weight": 2,
+    "primary": "632ad0",
+    "secondary": "c8b8ff",
+    "accent": "e89aff",
+    "eyes": "ff4fd8"
+   },
+   {
+    "name": "Ocean",
+    "weight": 2,
+    "primary": "2ad049",
+    "secondary": "b8ffbd",
+    "accent": "ff9aaf",
+    "eyes": "3ad7ff"
+   },
+   {
+    "name": "Candy",
+    "weight": 1,
+    "primary": "ff8fa0",
+    "secondary": "ffdce5",
+    "accent": "9ad7ff",
+    "eyes": "7aff6a"
+   }
+  ],
+  "emberdragon": [
+   {
+    "name": "Classic",
+    "weight": 4,
+    "primary": "e84a2a",
+    "secondary": "ffb080",
+    "accent": "ffd23a",
+    "eyes": "ffe03a"
+   },
+   {
+    "name": "Berry",
+    "weight": 2,
+    "primary": "c4e82a",
+    "secondary": "ccff80",
+    "accent": "3affce",
+    "eyes": "ff4fd8"
+   },
+   {
+    "name": "Ocean",
+    "weight": 2,
+    "primary": "e82ae3",
+    "secondary": "ff80e1",
+    "accent": "3a67ff",
+    "eyes": "3ad7ff"
+   },
+   {
+    "name": "Candy",
+    "weight": 1,
+    "primary": "8cffdb",
+    "secondary": "c0fff9",
+    "accent": "b6ff3a",
+    "eyes": "7aff6a"
+   }
+  ],
+  "jadedragon": [
+   {
+    "name": "Classic",
+    "weight": 4,
+    "primary": "2fb070",
+    "secondary": "b8f0c8",
+    "accent": "ffe08a",
+    "eyes": "ffe03a"
+   },
+   {
+    "name": "Berry",
+    "weight": 2,
+    "primary": "2f6cb0",
+    "secondary": "b8dff0",
+    "accent": "8affde",
+    "eyes": "ff4fd8"
+   },
+   {
+    "name": "Ocean",
+    "weight": 2,
+    "primary": "81b02f",
+    "secondary": "e8f0b8",
+    "accent": "8aa9ff",
+    "eyes": "3ad7ff"
+   },
+   {
+    "name": "Candy",
+    "weight": 1,
+    "primary": "ee8eeb",
+    "secondary": "f9e1ff",
+    "accent": "d8ff8a",
+    "eyes": "7aff6a"
+   }
+  ],
+  "ironyeti": [
+   {
+    "name": "Classic",
+    "weight": 4,
+    "primary": "7a8494",
+    "secondary": "b0b8c4",
+    "accent": "ff8a3a",
+    "eyes": "ffe03a"
+   },
+   {
+    "name": "Berry",
+    "weight": 2,
+    "primary": "8b7a94",
+    "secondary": "bcb0c4",
+    "accent": "3aff86",
+    "eyes": "ff4fd8"
+   },
+   {
+    "name": "Ocean",
+    "weight": 2,
+    "primary": "7a9486",
+    "secondary": "b0c4b9",
+    "accent": "3aafff",
+    "eyes": "3ad7ff"
+   },
+   {
+    "name": "Candy",
+    "weight": 1,
+    "primary": "c8b7b4",
+    "secondary": "d8cecd",
+    "accent": "feff3a",
+    "eyes": "7aff6a"
+   }
+  ],
+  "rustmech": [
+   {
+    "name": "Classic",
+    "weight": 4,
+    "primary": "a0502a",
+    "secondary": "6a3a20",
+    "accent": "3a3a3a",
+    "eyes": "ffe03a"
+   },
+   {
+    "name": "Berry",
+    "weight": 2,
+    "primary": "78a02a",
+    "secondary": "4f6a20",
+    "accent": "3a3a3a",
+    "eyes": "ff4fd8"
+   },
+   {
+    "name": "Ocean",
+    "weight": 2,
+    "primary": "a02a8b",
+    "secondary": "6a205a",
+    "accent": "3a3a3a",
+    "eyes": "3ad7ff"
+   },
+   {
+    "name": "Candy",
+    "weight": 1,
+    "primary": "80d8ca",
+    "secondary": "4c756f",
+    "accent": "3a3a3a",
+    "eyes": "7aff6a"
+   }
+  ],
+  "ghostbirb": [
+   {
+    "name": "Classic",
+    "weight": 4,
+    "primary": "c8d0ff",
+    "secondary": "f0f4ff",
+    "accent": "7a8aff",
+    "eyes": "ffe03a"
+   },
+   {
+    "name": "Berry",
+    "weight": 2,
+    "primary": "f8c8ff",
+    "secondary": "fbf0ff",
+    "accent": "ff7a8d",
+    "eyes": "ff4fd8"
+   },
+   {
+    "name": "Ocean",
+    "weight": 2,
+    "primary": "c8ffef",
+    "secondary": "f0fff9",
+    "accent": "ffef7a",
+    "eyes": "3ad7ff"
+   },
+   {
+    "name": "Candy",
+    "weight": 1,
+    "primary": "ffece1",
+    "secondary": "fff9f8",
+    "accent": "ba7aff",
+    "eyes": "7aff6a"
+   }
+  ],
+  "bonecrab": [
+   {
+    "name": "Classic",
+    "weight": 4,
+    "primary": "e8e4d0",
+    "secondary": "c8c4b0",
+    "accent": "8a2a2a",
+    "eyes": "ffe03a"
+   },
+   {
+    "name": "Berry",
+    "weight": 2,
+    "primary": "d4e8d0",
+    "secondary": "b4c8b0",
+    "accent": "2c8a2a",
+    "eyes": "ff4fd8"
+   },
+   {
+    "name": "Ocean",
+    "weight": 2,
+    "primary": "e8d0d7",
+    "secondary": "c8b0b7",
+    "accent": "2a8a8a",
+    "eyes": "3ad7ff"
+   },
+   {
+    "name": "Candy",
+    "weight": 1,
+    "primary": "f0faff",
+    "secondary": "cfd7dc",
+    "accent": "8a642a",
+    "eyes": "7aff6a"
+   }
+  ],
+  "infernodemon": [
+   {
+    "name": "Classic",
+    "weight": 4,
+    "primary": "d02a1a",
+    "secondary": "f08060",
+    "accent": "ffb020",
+    "eyes": "ffe03a"
+   },
+   {
+    "name": "Berry",
+    "weight": 2,
+    "primary": "bcd01a",
+    "secondary": "cdf060",
+    "accent": "20ffac",
+    "eyes": "ff4fd8"
+   },
+   {
+    "name": "Ocean",
+    "weight": 2,
+    "primary": "c71ad0",
+    "secondary": "f060e4",
+    "accent": "206fff",
+    "eyes": "3ad7ff"
+   },
+   {
+    "name": "Candy",
+    "weight": 1,
+    "primary": "84ffcf",
+    "secondary": "b2ffeb",
+    "accent": "c8ff20",
+    "eyes": "7aff6a"
+   }
+  ],
+  "frostdemon": [
+   {
+    "name": "Classic",
+    "weight": 4,
+    "primary": "8ad8ff",
+    "secondary": "d8f0ff",
+    "accent": "ffffff",
+    "eyes": "ffe03a"
+   },
+   {
+    "name": "Berry",
+    "weight": 2,
+    "primary": "b38aff",
+    "secondary": "e8d8ff",
+    "accent": "ffffff",
+    "eyes": "ff4fd8"
+   },
+   {
+    "name": "Ocean",
+    "weight": 2,
+    "primary": "8affa1",
+    "secondary": "d8ffe2",
+    "accent": "ffffff",
+    "eyes": "3ad7ff"
+   },
+   {
+    "name": "Candy",
+    "weight": 1,
+    "primary": "ffbfc8",
+    "secondary": "ffeced",
+    "accent": "ffffff",
+    "eyes": "7aff6a"
+   }
+  ],
+  "shadowdemon": [
+   {
+    "name": "Classic",
+    "weight": 4,
+    "primary": "2a1a4a",
+    "secondary": "5a3a8a",
+    "accent": "b06bff",
+    "eyes": "ffe03a"
+   },
+   {
+    "name": "Berry",
+    "weight": 2,
+    "primary": "4a1a39",
+    "secondary": "8a3a68",
+    "accent": "ffad6b",
+    "eyes": "ff4fd8"
+   },
+   {
+    "name": "Ocean",
+    "weight": 2,
+    "primary": "1a414a",
+    "secondary": "3a758a",
+    "accent": "baff6b",
+    "eyes": "3ad7ff"
+   },
+   {
+    "name": "Candy",
+    "weight": 1,
+    "primary": "645f40",
+    "secondary": "98946c",
+    "accent": "ff6bf5",
+    "eyes": "7aff6a"
+   }
+  ],
+  "golddemon": [
+   {
+    "name": "Classic",
+    "weight": 4,
+    "primary": "e0b030",
+    "secondary": "ffe890",
+    "accent": "3a1a6a",
+    "eyes": "ffe03a"
+   },
+   {
+    "name": "Berry",
+    "weight": 2,
+    "primary": "5ce030",
+    "secondary": "a5ff90",
+    "accent": "6a381a",
+    "eyes": "ff4fd8"
+   },
+   {
+    "name": "Ocean",
+    "weight": 2,
+    "primary": "e03079",
+    "secondary": "ff90b7",
+    "accent": "4a6a1a",
+    "eyes": "3ad7ff"
+   },
+   {
+    "name": "Candy",
+    "weight": 1,
+    "primary": "91e4ff",
+    "secondary": "c8eeff",
+    "accent": "6a1a6a",
+    "eyes": "7aff6a"
+   }
+  ],
+  "crystaldragon": [
+   {
+    "name": "Classic",
+    "weight": 4,
+    "primary": "7ae8ff",
+    "secondary": "d8f8ff",
+    "accent": "ff6bd5",
+    "eyes": "ffe03a"
+   },
+   {
+    "name": "Berry",
+    "weight": 2,
+    "primary": "947aff",
+    "secondary": "e0d8ff",
+    "accent": "d8ff6b",
+    "eyes": "ff4fd8"
+   },
+   {
+    "name": "Ocean",
+    "weight": 2,
+    "primary": "7aff7e",
+    "secondary": "d8ffda",
+    "accent": "6bff95",
+    "eyes": "3ad7ff"
+   },
+   {
+    "name": "Candy",
+    "weight": 1,
+    "primary": "ffb6cc",
+    "secondary": "ffecf1",
+    "accent": "ff6b7c",
+    "eyes": "7aff6a"
+   }
+  ],
+  "nightdragon": [
+   {
+    "name": "Classic",
+    "weight": 4,
+    "primary": "1a1a3a",
+    "secondary": "3a3a6a",
+    "accent": "5a6bff",
+    "eyes": "ffe03a"
+   },
+   {
+    "name": "Berry",
+    "weight": 2,
+    "primary": "3a1a39",
+    "secondary": "6a3a69",
+    "accent": "ff5a6e",
+    "eyes": "ff4fd8"
+   },
+   {
+    "name": "Ocean",
+    "weight": 2,
+    "primary": "1a3a36",
+    "secondary": "3a6a63",
+    "accent": "ffee5a",
+    "eyes": "3ad7ff"
+   },
+   {
+    "name": "Candy",
+    "weight": 1,
+    "primary": "4e4337",
+    "secondary": "75685a",
+    "accent": "ac5aff",
+    "eyes": "7aff6a"
+   }
+  ],
+  "voltfox": [
+   {
+    "name": "Classic",
+    "weight": 4,
+    "primary": "ffe03a",
+    "secondary": "e8c820",
+    "accent": "3a6aff",
+    "eyes": "ffe03a"
+   },
+   {
+    "name": "Berry",
+    "weight": 2,
+    "primary": "55ff3a",
+    "secondary": "3ce820",
+    "accent": "ff3a6e",
+    "eyes": "ff4fd8"
+   },
+   {
+    "name": "Ocean",
+    "weight": 2,
+    "primary": "ff3a75",
+    "secondary": "e8205c",
+    "accent": "ffcf3a",
+    "eyes": "3ad7ff"
+   },
+   {
+    "name": "Candy",
+    "weight": 1,
+    "primary": "93d8ff",
+    "secondary": "91d7ff",
+    "accent": "803aff",
+    "eyes": "7aff6a"
+   }
+  ],
+  "magmayeti": [
+   {
+    "name": "Classic",
+    "weight": 4,
+    "primary": "3a2a2a",
+    "secondary": "6a3a2a",
+    "accent": "ff6a1a",
+    "eyes": "ffe03a"
+   },
+   {
+    "name": "Berry",
+    "weight": 2,
+    "primary": "3a3a2a",
+    "secondary": "596a2a",
+    "accent": "1aff65",
+    "eyes": "ff4fd8"
+   },
+   {
+    "name": "Ocean",
+    "weight": 2,
+    "primary": "382a3a",
+    "secondary": "6a2a63",
+    "accent": "1aafff",
+    "eyes": "3ad7ff"
+   },
+   {
+    "name": "Candy",
+    "weight": 1,
+    "primary": "424e49",
+    "secondary": "51756d",
+    "accent": "fff31a",
+    "eyes": "7aff6a"
+   }
+  ],
+  "sporeking": [
+   {
+    "name": "Classic",
+    "weight": 4,
+    "primary": "8a4ad0",
+    "secondary": "d8b8f8",
+    "accent": "7affc8",
+    "eyes": "ffe03a"
+   },
+   {
+    "name": "Berry",
+    "weight": 2,
+    "primary": "d04a8d",
+    "secondary": "f8b8d7",
+    "accent": "c57aff",
+    "eyes": "ff4fd8"
+   },
+   {
+    "name": "Ocean",
+    "weight": 2,
+    "primary": "4aa3d0",
+    "secondary": "b8e1f8",
+    "accent": "ff7ab1",
+    "eyes": "3ad7ff"
+   },
+   {
+    "name": "Candy",
+    "weight": 1,
+    "primary": "ffffa5",
+    "secondary": "feffde",
+    "accent": "7ae6ff",
+    "eyes": "7aff6a"
+   }
+  ],
+  "titanrex": [
+   {
+    "name": "Classic",
+    "weight": 4,
+    "primary": "c8a020",
+    "secondary": "f0d878",
+    "accent": "ffffff",
+    "eyes": "ffe03a"
+   },
+   {
+    "name": "Berry",
+    "weight": 2,
+    "primary": "45c820",
+    "secondary": "8ef078",
+    "accent": "ffffff",
+    "eyes": "ff4fd8"
+   },
+   {
+    "name": "Ocean",
+    "weight": 2,
+    "primary": "c82060",
+    "secondary": "f078a1",
+    "accent": "ffffff",
+    "eyes": "3ad7ff"
+   },
+   {
+    "name": "Candy",
+    "weight": 1,
+    "primary": "89deff",
+    "secondary": "bfebff",
+    "accent": "ffffff",
+    "eyes": "7aff6a"
+   }
+  ],
+  "stormdragon": [
+   {
+    "name": "Classic",
+    "weight": 4,
+    "primary": "5a8aff",
+    "secondary": "c8d8ff",
+    "accent": "ffffff",
+    "eyes": "ffe03a"
+   },
+   {
+    "name": "Berry",
+    "weight": 2,
+    "primary": "d25aff",
+    "secondary": "f0c8ff",
+    "accent": "ffffff",
+    "eyes": "ff4fd8"
+   },
+   {
+    "name": "Ocean",
+    "weight": 2,
+    "primary": "5affb8",
+    "secondary": "c8ffe7",
+    "accent": "ffffff",
+    "eyes": "3ad7ff"
+   },
+   {
+    "name": "Candy",
+    "weight": 1,
+    "primary": "ffb9a4",
+    "secondary": "ffeae3",
+    "accent": "ffffff",
+    "eyes": "7aff6a"
+   }
+  ],
+  "overmech": [
+   {
+    "name": "Classic",
+    "weight": 4,
+    "primary": "1a1a22",
+    "secondary": "3a3a44",
+    "accent": "ff2a4a",
+    "eyes": "ffe03a"
+   },
+   {
+    "name": "Berry",
+    "weight": 2,
+    "primary": "221a22",
+    "secondary": "443a44",
+    "accent": "4eff2a",
+    "eyes": "ff4fd8"
+   },
+   {
+    "name": "Ocean",
+    "weight": 2,
+    "primary": "1a2221",
+    "secondary": "3a4443",
+    "accent": "2affdf",
+    "eyes": "3ad7ff"
+   },
+   {
+    "name": "Candy",
+    "weight": 1,
+    "primary": "2e2b28",
+    "secondary": "4b4845",
+    "accent": "ff8a2a",
+    "eyes": "7aff6a"
+   }
+  ],
+  "starserpent": [
+   {
+    "name": "Classic",
+    "weight": 4,
+    "primary": "1a1a5a",
+    "secondary": "3a3a8a",
+    "accent": "ffe03a",
+    "eyes": "ffe03a"
+   },
+   {
+    "name": "Berry",
+    "weight": 2,
+    "primary": "5a1a59",
+    "secondary": "8a3a88",
+    "accent": "3affdc",
+    "eyes": "ff4fd8"
+   },
+   {
+    "name": "Ocean",
+    "weight": 2,
+    "primary": "1a5a51",
+    "secondary": "3a8a7f",
+    "accent": "3a59ff",
+    "eyes": "3ad7ff"
+   },
+   {
+    "name": "Candy",
+    "weight": 1,
+    "primary": "7a634a",
+    "secondary": "98836c",
+    "accent": "a8ff3a",
+    "eyes": "7aff6a"
+   }
+  ],
+  "phoenixbirb": [
+   {
+    "name": "Classic",
+    "weight": 4,
+    "primary": "ff7a1a",
+    "secondary": "ffd080",
+    "accent": "ffe03a",
+    "eyes": "ffe03a"
+   },
+   {
+    "name": "Berry",
+    "weight": 2,
+    "primary": "9aff1a",
+    "secondary": "acff80",
+    "accent": "3affdc",
+    "eyes": "ff4fd8"
+   },
+   {
+    "name": "Ocean",
+    "weight": 2,
+    "primary": "ff1abf",
+    "secondary": "ff80c1",
+    "accent": "3a59ff",
+    "eyes": "3ad7ff"
+   },
+   {
+    "name": "Candy",
+    "weight": 1,
+    "primary": "81fff7",
+    "secondary": "c0f5ff",
+    "accent": "a8ff3a",
+    "eyes": "7aff6a"
+   }
+  ],
+  "leviathan": [
+   {
+    "name": "Classic",
+    "weight": 4,
+    "primary": "2a4aa0",
+    "secondary": "6a8ae0",
+    "accent": "7affff",
+    "eyes": "ffe03a"
+   },
+   {
+    "name": "Berry",
+    "weight": 2,
+    "primary": "822aa0",
+    "secondary": "c26ae0",
+    "accent": "fc7aff",
+    "eyes": "ff4fd8"
+   },
+   {
+    "name": "Ocean",
+    "weight": 2,
+    "primary": "2aa06f",
+    "secondary": "6ae0af",
+    "accent": "ff7a7a",
+    "eyes": "3ad7ff"
+   },
+   {
+    "name": "Candy",
+    "weight": 1,
+    "primary": "d89680",
+    "secondary": "f6c6b5",
+    "accent": "7aafff",
     "eyes": "7aff6a"
    }
   ]
