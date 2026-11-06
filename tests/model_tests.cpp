@@ -1,11 +1,14 @@
 // Linux tests for the model module: loads every model mapped in data/models.json, checks mesh / material /
 // skeleton / clip counts and texture decoding, the animator (sampling, crossfade, one-shot clips), looks/recolours,
 // the manifest and the missing-file fallback. Prints the clip names found per model.
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <set>
 #include <string>
+#include <tuple>
+#include <utility>
 #include "core/json.h"
 #include "model/animator.h"
 #include "model/model_library.h"
@@ -294,7 +297,7 @@ static void testGameModels(ModelLibrary& lib) {
   int mapped = 0; std::string none;
   for (auto& m : T.monsters) { if (gm.find(m.id) >= 0) mapped++; else none += " " + m.id; }
   std::printf("  monsters with models: %d/%zu (primitive:%s)\n", mapped, T.monsters.size(), none.c_str());
-  CHECK(gm.find("tommyzilla") >= 0 && gm.find("mossback") >= 0 && gm.find("sparkleraptor") >= 0 && mapped >= 10);
+  CHECK(gm.find("tommyzilla") >= 0 && gm.find("mossback") >= 0 && gm.find("sparkleraptor") >= 0 && gm.find("clanksworth") >= 0 && gm.find("pinchington") >= 0 && gm.find("stompasaurus") >= 0 && mapped >= 16);
   { int bad = 0; for (auto& d : lib.manifest().models) { const ModelAsset* a = lib.get(d.id); if (!a) continue;
       for (auto& c : d.clips) if (a->clip(c.first) < 0) { bad++; std::printf("  %s: clip %s -> '%s' missing\n", d.id.c_str(), c.first.c_str(), c.second.c_str()); } }
     CHECK(bad == 0); }
@@ -408,13 +411,62 @@ static void testGroundTextureFiles() {
   CHECK(!miss.ok && !miss.error.empty());
 }
 
+// Bind pose of the Quaternius heroes is an A/T stance (arms out). A real walk cycle pulls the arms in.
+static float skinnedSpanX(const Model& m, const Pose& p) {
+  const Mesh* sm = nullptr; int skin = -1;
+  for (auto& n : m.nodes) if (n.mesh >= 0 && m.meshes[(size_t)n.mesh].skinned) { sm = &m.meshes[(size_t)n.mesh]; skin = n.skin; break; }
+  if (!sm || skin < 0 || skin >= (int)p.skinMats.size()) return -1.f;
+  std::vector<Vertex> out(sm->vertices.size());
+  skinMesh(*sm, p.skinMats[(size_t)skin], out.data());
+  float lo = 1e9f, hi = -1e9f;
+  for (auto& v : out) { lo = std::min(lo, v.pos[0]); hi = std::max(hi, v.pos[0]); }
+  return hi - lo;
+}
+static void testLimbsNotTPose(ModelLibrary& lib) {
+  SECTION("walk cycle, not the bind T-pose, in play and menus");
+  const ModelAsset* hero = lib.get("tommyzilla");
+  CHECK(hero != nullptr);
+  if (!hero) return;
+  const Model& m = hero->model;
+  Pose bind; computePose(m, m.restLocals(), bind);
+  const float bindSpan = skinnedSpanX(m, bind);
+  std::printf("  tommyzilla bind spanX %.3f\n", bindSpan);
+  CHECK(bindSpan > 2.f);
+  auto g = std::make_unique<Game>();
+  GameModels gm(lib);
+  g->init(nullptr); g->save.tutorial.done = true; g->startMode(false); g->models = &gm;
+  g->selectMonster(std::max(0, T.monsterIndex("tommyzilla")));
+  InputState none;
+  for (int i = 0; i < 20; i++) g->frame(1.f / 60, none);
+  for (int i = 0; i < 6 && !g->menus.empty(); i++) { InputState c; c.pressed[A_CONFIRM] = true; g->frame(1.f / 60, c); }
+  auto spanRange = [&](int frames) {
+    float mn = 1e9f, mx = -1e9f; int seen = 0;
+    for (int i = 0; i < frames; i++) {
+      g->frame(1.f / 60, none);
+      RenderList rl; ModelDrawList ml;
+      g->render(rl, 1280, 720);
+      gm.build(rl, ml);
+      for (auto& d : ml.draws) if (d.model == &m && d.pose) { float s = skinnedSpanX(m, *d.pose); mn = std::min(mn, s); mx = std::max(mx, s); seen++; }
+    }
+    std::printf("  samples %d spanX %.3f..%.3f (bind %.3f)\n", seen, mn, mx, bindSpan);
+    return std::make_tuple(seen, mn, mx);
+  };
+  auto stood = spanRange(90);  // standing still: walk cycle, not a frozen bind pose
+  CHECK(std::get<0>(stood) > 0 && std::get<1>(stood) < bindSpan - 0.5f && std::get<2>(stood) - std::get<1>(stood) > 0.4f);
+  g->openCharacterSelect(true);
+  g->updateMenus(none, 1.f / 60);
+  auto menu = spanRange(90);  // character menu: the cycle keeps playing
+  CHECK(std::get<0>(menu) > 0 && std::get<1>(menu) < bindSpan - 0.5f && std::get<2>(menu) - std::get<1>(menu) > 0.4f);
+  g->menus.clear();
+}
+
 int main() {
   testMath(); testInlineGltf(); testTextureDecode(); testFallbackAndManifest(); testGroundTextureFiles();
   ModelLibrary lib; std::string err;
   bool ok = lib.loadManifestFile(kRoot + "data/models.json", kRoot, err);
   if (!ok) std::printf("manifest error: %s\n", err.c_str());
   CHECK(ok);
-  testManifestModels(lib); testSkinning(lib); testLooks(lib); testOptionalFbxCharacter(); testScene(lib); testGameModels(lib);
+  testManifestModels(lib); testSkinning(lib); testLooks(lib); testOptionalFbxCharacter(); testScene(lib); testGameModels(lib); testLimbsNotTPose(lib);
   std::printf("\n[library log]\n"); for (auto& l : lib.log()) std::printf("  %s\n", l.c_str());
   std::printf("\n%d passed, %d failed\n", gPass, gFail);
   return gFail ? 1 : 0;

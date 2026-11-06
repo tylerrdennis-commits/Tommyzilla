@@ -197,6 +197,7 @@ void Enemies::update(float dt, const InputState& in) {
       continue;
     }
     float slow = u.slowT > 0 ? 0.3f : 1.f; bool frozen = u.slowT > 0;
+    if (G->hasInfinity("time")) slow *= 0.65f;
     bool focusP2 = G->coopFocusBegin(u.pos);  // Wren: co-op - target the nearest player (K now refers to them)
     switch (u.type) {
       case U_COP: case U_SOLDIER: {  // on foot: walk up, then fire cartoon pea-shooters

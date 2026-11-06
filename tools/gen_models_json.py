@@ -44,10 +44,17 @@ monsters = [
   ("thunderhorn",   "Demon.glb",            15, BIG,    [rc("Demon_Main", "#3a3a8a")]),
   ("roborumble",    "Mech_Fox.glb",         16, MECH,   []),
 ]
+# Three more meshes so at least 16 heroes have a model, and the on-screen name matches that mesh
+# (Bee Mech, Blue Demon, Block Kid). Clamshell and Slinkysnoot stay on their crab / serpent rigs.
 for id, f, h, clips, recolor in monsters:
     e = {"height": h, "fallback": "monster", "clips": clips}
     if recolor: e["recolor"] = recolor
     add(id, PP + f, **e)
+add("clanksworth", PP + "Mech_Bee.glb", height=16, fallback="monster", clips=MECH)
+add("stompasaurus", PP + "BlueDemon.glb", height=15, fallback="monster", clips=BIG,
+    recolor=[rc("BlueDemon_Main", "#3a6adf"), rc("BlueDemon_Secondary", "#e0a030")])
+add("pinchington", KP + "character-male-a.glb", height=14, fallback="monster", clips=CIV,
+    extra=[KP + "Textures/colormap.png"])
 # ---- THE BULK: the Blue Demon in purple (game scale 1.6 .. 4.0 multiplies this 15 = Boss::height() at scale 1)
 add("the_bulk", PP + "BlueDemon.glb", height=15, fallback="boss", clips=BIG,
     recolor=[rc("BlueDemon_Main", "#8a3fd6", "hue"), rc("BlueDemon_Secondary", "#e0a030")])

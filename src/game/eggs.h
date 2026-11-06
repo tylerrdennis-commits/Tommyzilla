@@ -46,8 +46,24 @@ struct InputState;
 bool zooGulpPressed(const InputState& in);  // Rex: eat / claw / grab / confirm all gulp the zookeeper
 std::string loadEggData(const std::string& json);  // "" ok; uses the embedded copy when json is empty
 
+constexpr int kShinyEggCost = 10;   // eggs spent per shiny attempt
+constexpr int kShinyOdds = 10;       // 1 in 10
+inline constexpr const char* kShinyOddsLine = "Spend 10 eggs for a 1 in 10 chance at a shiny. This is a chance, not a guarantee.";
+struct ShinyRoll { bool spent = false; bool hit = false; };
+struct InfinityStoneDef { const char* id; const char* name; const char* what; };
+inline constexpr InfinityStoneDef kInfinityStones[] = {
+    {"space", "Space", "Each step covers more ground."},
+    {"mind", "Mind", "Shows facing and pace on screen."},
+    {"reality", "Reality", "Recolors the hero while equipped."},
+    {"power", "Power", "Swells the hero's size for the run."},
+    {"time", "Time", "Slows enemies, easing the fight."},
+    {"soul", "Soul", "An aura that follows the hero."},
+};
+inline constexpr int kInfinityCount = 6;
+
 struct KaijuLook {
   std::string monster; int rarity = 0; int palette = 0; Color primary, secondary, accent, eyes; int finish = FIN_NONE;
+  bool shiny = false;  // hue-flipped palette + gold spark; a missed egg roll never clears it
   std::vector<std::string> passives; std::string bonusSuper;
   uint32_t genSeed = 0; int element = -1;  // Rex: procedural body seed (0 = classic model); Tommyzilla legendary element (-1 none, see kaiju_gen.h)
   bool has(const std::string& passive) const { for (auto& p : passives) if (p == passive) return true; return false; }
@@ -63,6 +79,7 @@ std::string rollSpecies(Rng& r, const Tables& t, int* rarityOut = nullptr);
 int rollFinish(Rng& r, float mult = 1);                         // independent chances, rarest first
 KaijuLook defaultLook(const MonsterDef& m);                     // classic palette, no finish (legacy saves)
 KaijuLook rollLook(Rng& r, const std::string& monster, const Tables& t);  // palette mix + finish + perks of its tier
+ShinyRoll rollShiny(int& eggs, Rng& r);  // spends kShinyEggCost when eggs allow it; hit is a 1-in-kShinyOdds roll
 float growthFrac(float xp);                                     // 0..1
 float growthScale(float xp);                                    // hatchling start .. 1 (cap)
 }  // namespace eggs

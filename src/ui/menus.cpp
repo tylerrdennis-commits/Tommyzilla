@@ -113,6 +113,9 @@ void Game::openMainMenu() {
     MenuItem ch; ch.label = "Characters"; ch.right = std::to_string(save.monsters.size()) + "/" + std::to_string(T.monsters.size());
     ch.desc = "Pick any monster you have hatched. Rarer kaiju start bigger and tougher, and each one has its own colours."; ch.act = [this]() { openCharacterSelect(false); };
     mm.items.push_back(ch);
+    MenuItem inf; inf.label = "Infinity Stones"; inf.right = std::to_string(save.infinity.size()) + "/" + std::to_string(kInfinityCount);
+    inf.desc = "Choose which stones to bring. Each one explains what it does."; inf.act = [this]() { openInfinityStones(); };
+    mm.items.push_back(inf);
     MenuItem op; op.label = "Options"; op.desc = "Sound, controls and save data"; op.act = [this]() { openOptions(); }; mm.items.push_back(op);
     if (slots) { MenuItem sl; sl.label = "Switch player / save slot"; sl.right = "Slot " + std::to_string(slot + 1); sl.desc = "Three save slots - one for each player"; sl.act = [this]() { persist(); openSlotMenu(); }; mm.items.push_back(sl); }
     {  // Vault: difficulty + player count (Titan's DiffMods); Left/Right or Confirm cycles
@@ -226,6 +229,14 @@ void Game::openPause() {
     item("Melee loadout", "Choose which melee moves are on X / B / A and LB + X / B / A", [this]() { openMelee(); });
     item("Move list", "All " + std::to_string(T.moves.size()) + " moves and how to unlock them", [this]() { openMoveList(); });
     item("Characters", "Switch monster", [this]() { openCharacterSelect(true); });
+    item("Infinity Stones", "Choose which stones to bring. Each one explains what it does.", [this]() { openInfinityStones(); }, std::to_string(save.infinity.size()) + "/" + std::to_string(kInfinityCount));
+    {
+      MenuItem sh; sh.label = "Shiny chance"; sh.right = std::to_string(save.eggs) + " eggs";
+      sh.desc = save.eggs >= kShinyEggCost ? kShinyOddsLine : std::string(kShinyOddsLine) + " Need 10 eggs (have " + std::to_string(save.eggs) + ").";
+      sh.enabled = save.eggs >= kShinyEggCost;
+      sh.act = [this]() { tryShiny(kaiju.def().id); };
+      mm.items.push_back(sh);
+    }
     if (!adventure) {
       MenuItem pol; pol.label = "Police"; pol.right = save.settings.police ? "ON" : "OFF";  // sandbox only; default OFF (Settings::police)
       pol.desc = "Sandbox police (default OFF). ON: wanted stars bring cars, a helicopter, tanks and a nuke countdown (pay " + std::to_string((int)C.nukeCancelCost) + " coins to cancel). OFF: no police, no sirens, no wanted stars.";
@@ -341,12 +352,12 @@ void Game::openCharacterSelect(bool fromPause) {
   Menu m; m.title = "CHARACTERS"; m.kind = 3;
   m.index = std::max(0, T.monsterIndex(save.monster));
   m.build = [this, fromPause](Menu& mm) {
-    mm.body = std::to_string(save.monsters.size()) + "/" + std::to_string(T.monsters.size()) + " monsters. Hatch more in Adventure mode!";
+    mm.body = std::to_string(save.monsters.size()) + "/" + std::to_string(T.monsters.size()) + " monsters. Hatch more in Adventure mode!\nEggs: " + std::to_string(save.eggs) + ". " + kShinyOddsLine;
     for (int i = 0; i < (int)T.monsters.size(); i++) {
       const MonsterDef& md = T.monsters[i]; bool has = crazy || save.monsters.count(md.id) > 0;  // Crazy: every hero is playable
       MenuItem it; it.label = has ? md.name : "???"; it.right = md.id == save.monster ? "PLAYING" : (has ? "" : "locked");
       if (has && hasLook(md.id)) { KaijuLook lk = lookOf(md.id); const RarityDef& rd = E.rarity(lk.rarity);
-        it.right = (md.id == save.monster ? "PLAYING  " : "") + rd.name + (lk.finish ? std::string(" ") + E.finishes[lk.finish - 1].name : std::string()); }
+        it.right = (md.id == save.monster ? "PLAYING  " : "") + rd.name + (lk.finish ? std::string(" ") + E.finishes[lk.finish - 1].name : std::string()) + (lk.shiny ? " SHINY" : ""); }
       it.desc = has ? md.desc + "\n" + planName(md.plan) + "  speed x" + fmt1(md.speed) + "  HP x" + fmt1(md.hp) + "  melee x" + fmt1(md.melee) + "  power x" + fmt1(md.power)
                     : std::string("A mystery monster. Hatch it from an egg in Adventure mode.");
       it.enabled = has;
@@ -354,6 +365,18 @@ void Game::openCharacterSelect(bool fromPause) {
       mm.items.push_back(it);
     }
     MenuItem b; b.label = "Back"; b.act = [this]() { popMenu(); }; mm.items.push_back(b);
+    MenuItem sh; sh.label = "Spend 10 eggs for a shiny"; sh.desc = kShinyOddsLine; sh.right = std::to_string(save.eggs) + " eggs";
+    int sel = std::max(0, std::min(mm.index, (int)mm.items.size()));
+    bool own = sel < (int)T.monsters.size() && (crazy || save.monsters.count(T.monsters[(size_t)sel].id));
+    sh.enabled = own && save.eggs >= kShinyEggCost;
+    if (save.eggs < kShinyEggCost) sh.desc = std::string(kShinyOddsLine) + " Need 10 eggs (have " + std::to_string(save.eggs) + ").";
+    else if (!own) sh.desc = std::string(kShinyOddsLine) + " Pick a hero you own first.";
+    sh.act = [this]() {
+      const Menu& cur = menus.back();
+      if (cur.index < 0 || cur.index >= (int)T.monsters.size()) { toast("Pick a hero you own first"); play(SND_error); return; }
+      tryShiny(T.monsters[(size_t)cur.index].id);
+    };
+    mm.items.insert(mm.items.end() - 1, sh);
   };
   pushMenu(m);
 }
@@ -627,7 +650,11 @@ std::string Game::levelHud() {
   }
   const LevelDef& L = T.levels[level.idx];
   std::string s = "L" + std::to_string(level.idx + 1) + " " + L.name + ": ";
-  if (level.bossPhase) return s + "knock out the " + (L.miniBoss == "mech" ? "MEGA MECH" : "GIANT SUPER-TANK") + "!";
+  if (level.bossPhase) {
+    const char* nm = bossDisplayName(bossIdFromName(AP().lastBoss.empty() ? L.miniBoss : AP().lastBoss));
+    if (Unit* mb = enemies.miniBoss()) nm = bossDisplayName(mb->boss);
+    return s + "knock out the " + nm + "!";
+  }
   switch (L.obj) {
     case ObjType::Smash: s += "smash " + std::string(L.filter == "oldtown" ? "Old Town " : "") + "buildings " + std::to_string(level.count) + "/" + std::to_string(L.count); break;
     case ObjType::Survive: s += "survive " + mmss(level.t) + (L.hasZone && dist2D(kaiju.pos.x, kaiju.pos.z, L.zx, L.zz) >= L.zr ? "  (get back in the park!)" : ""); break;
@@ -680,7 +707,8 @@ void Game::drawHud(RenderList& rl) {
     u.text(6 + 4 * s, 6 + 3 * s + u.lineH(s), "Eaten: " + std::to_string(p.eaten), s, needEatT > 0 && ((int)(realTime * 6)) % 2 ? RED : PEA);  // super-attack fuel (E)
     float ly0 = 6 + 3 * s + u.lineH(s);
     u.text(6 + 4 * s, ly0 + u.lineH(s), std::string(adventure ? (crazy ? "CRAZY" : "ADVENTURE") : "SANDBOX") + "  smashed " + std::to_string(p.smashCount) + "  rainbows " + std::to_string(p.rainbows), small, WHITE);
-    std::string line3 = kaiju.def().name;
+    std::string line3 = kaiju.def().name + (lookOf(kaiju.def().id).shiny ? "  SHINY" : "");
+    if (hasInfinity("mind")) line3 += "  facing " + std::to_string((int)(kaiju.facing * 180.f / PI)) + "  pace " + fmt1(kaiju.speedNow);
     if (!adventure && !p.schoolUnlocked) line3 += "  | school " + std::to_string(prog::schoolProgress(p)) + "/" + std::to_string((int)C.schoolUnlockCount) + " landmarks";
     u.text(6 + 4 * s, ly0 + u.lineH(s) + u.lineH(small), line3, small, GREY);
     // health bar
@@ -711,7 +739,7 @@ void Game::drawHud(RenderList& rl) {
     }
     if (Unit* mb = enemies.miniBoss()) {  // level 11-14 boss bar
       float bw2 = 240 * s, bx2 = u.W / 2 - bw2 / 2, bh2 = 8 * s;
-      u.textC(u.W / 2, y, mb->boss == 2 ? "MEGA MECH" : "GIANT SUPER-TANK", s, hexColor(0xffb020)); y += u.lineH(s);
+      u.textC(u.W / 2, y, bossDisplayName(mb->boss), s, hexColor(0xffb020)); y += u.lineH(s);
       float kb = clampf(mb->hp / std::max(1.f, mb->maxHp), 0, 1);
       u.rect(bx2 - 2, y - 2, bw2 + 4, bh2 + 4, Color{0, 0, 0, 0.7f});
       u.rect(bx2, y, bw2 * kb, bh2, hexColor(0xff6a20));

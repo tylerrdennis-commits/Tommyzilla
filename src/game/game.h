@@ -483,6 +483,9 @@ struct Game {
   void openMelee();
   void openMoveList();
   void openCharacterSelect(bool fromPause);
+  void openInfinityStones();
+  bool tryShiny(const std::string& id);          // spend 10 eggs for a 1-in-10 shiny; false if it could not spend
+  bool hasInfinity(const char* id) const { return save.infinity.count(id) != 0; }
   void openOptions();
   void openSkills();
   void openControls();
